@@ -62,10 +62,10 @@ a:hover img {
   flex-direction: row;
   align-items: center;
   gap: 15px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 10px;
-  border-radius: 25px;
-  transition: right 0.3s ease;
+  background: rgba(0, 0, 0, 0.0);
+  padding: 5px;
+  border-radius: 10px;
+  transition: right 0.2s ease;
 }
 
 /* Al activarse, se desplazan a la vista */
