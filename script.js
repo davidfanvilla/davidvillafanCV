@@ -9,6 +9,12 @@ let scrollY = 0;
 let velocity = 0;
 let lastTime = 0;
 
+// Variables para soporte táctil
+let touchStartY = 0;
+let touchLastY = 0;
+let touchVelocity = 0;
+let touchStartTime = 0;
+
 function setup() {
   // Ajusta el canvas para llenar el ancho de la ventana
   let canvas = createCanvas(windowWidth, windowHeight);
@@ -33,6 +39,11 @@ function setup() {
   cvGraphics.textAlign(CENTER, TOP);
 
   dibujarCV();
+
+  // Añadir eventos táctiles
+  canvas.elt.addEventListener('touchstart', handleTouchStart, { passive: false });
+  canvas.elt.addEventListener('touchmove', handleTouchMove, { passive: false });
+  canvas.elt.addEventListener('touchend', handleTouchEnd, { passive: false });
 }
 
 function draw() {
@@ -84,6 +95,37 @@ function draw() {
   image(cvGraphics, 0, 0);
 
   pop();
+}
+
+// Funciones para manejo de eventos táctiles
+function handleTouchStart(event) {
+  event.preventDefault();
+  touchStartY = event.touches[0].clientY;
+  touchLastY = touchStartY;
+  touchStartTime = millis();
+  velocity = 0;
+}
+
+function handleTouchMove(event) {
+  event.preventDefault();
+  let currentY = event.touches[0].clientY;
+  let deltaY = touchLastY - currentY;
+  
+  velocity = deltaY * 2; // Ajusta la sensibilidad del scroll
+  scrollY += deltaY;
+  
+  touchLastY = currentY;
+}
+
+function handleTouchEnd(event) {
+  event.preventDefault();
+  let touchEndTime = millis();
+  let touchDuration = touchEndTime - touchStartTime;
+  
+  // Añadir efecto de inercia
+  if (touchDuration < 200) {
+    velocity *= 5; // Impulso adicional si el gesto es rápido
+  }
 }
 
 function dibujarCV() {
@@ -164,3 +206,8 @@ function mouseWheel(event) {
   velocity += event.delta * 1.0;
   return false;
 }
+
+// Añadir soporte para rueda de ratón en dispositivos táctiles
+document.addEventListener('wheel', function(event) {
+  event.preventDefault();
+}, { passive: false });
