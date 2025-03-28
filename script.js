@@ -51,18 +51,14 @@ function setup() {
   canvas.elt.addEventListener('touchmove', handleTouchMove, { passive: false });
   canvas.elt.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-  // Ocultar barra de enlaces en dispositivos móviles
-  if (/Mobi|Android/i.test(navigator.userAgent)) {
-    document.getElementById('social-links').style.display = 'none';
-  }
-
   // Manejar evento click para la pestaña "DESLIZA" en computadoras
   document.getElementById('social-tab').addEventListener('click', function() {
+    // En computadora se alterna el estado; en móviles el swipe se usará para mostrar
     if (!/Mobi|Android/i.test(navigator.userAgent)) {
       document.getElementById('social-links').classList.toggle('visible');
     }
   });
-}  // <-- Cierre de setup()
+}  // Cierre de setup()
 
 function draw() {
   background(10);
@@ -111,7 +107,6 @@ function draw() {
   }
 
   image(cvGraphics, 0, 0);
-
   pop();
 }
 
@@ -129,10 +124,10 @@ function handleTouchMove(event) {
   let deltaX = currentX - touchStartX;
   let deltaY = currentY - touchStartY;
 
-  // Invertir la dirección para lograr scroll universal:
+  // Desplazamiento vertical: invertir deltaY para lograr scroll natural
   velocity -= deltaY * 0.5;
 
-  // Control de social links por deslizamiento horizontal
+  // Mostrar/ocultar social links mediante swipe horizontal
   if (deltaX < -50) { // Desliza a la izquierda
     showSocialLinks();
   } else if (deltaX > 50) { // Desliza a la derecha para ocultar
@@ -142,10 +137,10 @@ function handleTouchMove(event) {
 
 function handleTouchEnd(event) {
   event.preventDefault();
-  touchEndX = event.changedTouches[0].clientX;
+  // Opcional: puedes reiniciar touchStartX/touchStartY si lo deseas
 }
 
-// Eventos de mouse para detectar swipe horizontal
+// Eventos de mouse para detectar swipe horizontal en escritorio
 function mousePressed() {
   mouseDown = true;
   mouseStartX = mouseX;
