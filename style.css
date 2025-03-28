@@ -21,7 +21,7 @@ html, body {
 .social-links {
     position: fixed;
     bottom: 30px;
-    right: -200px; /* Inicialmente ocultas */
+    right: -2000px; /* Inicialmente ocultas */
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -58,6 +58,7 @@ html, body {
     color: white;
     writing-mode: vertical-rl; /* Texto vertical */
     text-align: center;
+    text-orientation: upright;
     cursor: pointer;
     border-radius: 10px 0 0 10px;
 }
