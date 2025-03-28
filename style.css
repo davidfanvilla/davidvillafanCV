@@ -62,7 +62,7 @@ a:hover img {
     flex-direction: row;
     align-items: center;
     gap: 15px;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.0);
     padding: 10px;
     border-radius: 25px;
     transition: right 0.3s ease;
@@ -91,13 +91,13 @@ a:hover img {
     opacity: 0.5;
 }
 
-/* Estilo para la pestaña de social tab */
+/* Estilo para la pestaña de social tab con texto vertical */
 .social-tab {
     position: fixed;
     bottom: 30px;
     right: 0;
     z-index: 110;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.0);
     color: #fff;
     padding: 5px 10px;
     border-top-left-radius: 5px;
@@ -105,6 +105,8 @@ a:hover img {
     font-family: sans-serif;
     cursor: pointer;
     transition: right 0.3s ease;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
 }
 
 /* Ocultar la pestaña cuando los social links están visibles */
