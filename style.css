@@ -2,6 +2,8 @@
 html {
   scroll-behavior: smooth;
   overflow: hidden; /* Previene scroll en todo el documento */
+  width: 100%;
+  height: 100%;
 }
 
 /* Reinicio de márgenes y padding */
@@ -22,6 +24,8 @@ body {
     position: fixed;
     top: 0;
     left: 0;
+    padding-bottom: env(safe-area-inset-bottom); /* Soporte para Safari con barra inferior */
+    box-sizing: border-box;
 }
 
 /* Asegura que el canvas se muestre en bloque */
@@ -87,6 +91,27 @@ a:hover img {
     opacity: 0.5;
 }
 
+/* Estilo para la pestaña de social tab */
+.social-tab {
+    position: fixed;
+    bottom: 30px;
+    right: 0;
+    z-index: 110;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    padding: 5px 10px;
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+    font-family: sans-serif;
+    cursor: pointer;
+    transition: right 0.3s ease;
+}
+
+/* Ocultar la pestaña cuando los social links están visibles */
+.social-tab.hidden {
+    display: none;
+}
+
 /* Media query para dispositivos pequeños */
 @media screen and (max-width: 768px) {
     .social-links {
@@ -98,4 +123,9 @@ a:hover img {
         width: 40px;
         height: 40px;
     }
+    
+    .social-tab {
+        bottom: 20px;
+    }
 }
+
