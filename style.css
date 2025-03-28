@@ -81,20 +81,31 @@ a:hover img {
 
 /* Estilos para la pestaña DESLIZA en vertical */
 .social-tab {
-  position: fixed;
-  bottom: 30px;
-  right: 0;
-  z-index: 110;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  padding: 5px 10px;
-  border-top-left-radius: 5px;
-  border-bottom-left-radius: 5px;
-  font-family: sans-serif;
-  cursor: pointer;
-  transition: right 0.3s ease;
-  writing-mode: vertical-rl;
-  text-orientation: upright;
+    position: fixed;
+    right: 0;
+    bottom: 50%;
+    transform: translateY(50%);
+    background: rgba(0,0,0,0.5);
+    padding: 10px 15px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    cursor: pointer;
+    border-radius: 10px 0 0 10px;
+    /* Aseguramos que el contenedor tenga posición relativa para posicionar la flecha */
+    position: relative;
+}
+
+.social-tab::before {
+    content: "←";
+    position: absolute;
+    left: -25px;  /* Ajusta este valor para que la flecha quede a la izquierda de la pestaña */
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: white;
 }
 
 /* La pestaña se oculta al mostrar los social links */
