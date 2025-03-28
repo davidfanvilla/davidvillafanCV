@@ -1,43 +1,39 @@
 /* Comportamiento suave de scroll en anclas */
 html {
   scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%; /* Previene ajuste automático de texto en dispositivos móviles */
-  -ms-text-size-adjust: 100%;
+  overflow: hidden; /* Previene scroll en todo el documento */
 }
 
 /* Reinicio de márgenes y padding */
-html, body {
+body {
     margin: 0;
     padding: 0;
+    overflow: hidden; /* Previene scroll en todo el documento */
+    position: fixed;
+    width: 100%;
     height: 100%;
-    overflow-y: auto; /* Permite el scroll vertical */
-    overscroll-behavior-y: contain; /* Previene el bounce en navegadores modernos */
-    -webkit-overflow-scrolling: touch; /* Scroll suave en dispositivos iOS */
 }
 
 /* Contenedor del canvas: ocupa el ancho completo y se adapta al contenido */
 #canvas-container {
-    width: 100%;
-    height: auto; /* Se adapta al contenido */
+    width: 100vw;
+    height: 100vh;
     background-color: #0a0a0a;
-    -webkit-tap-highlight-color: transparent; /* Elimina el highlight en dispositivos táctiles */
+    position: fixed;
+    top: 0;
+    left: 0;
 }
 
 /* Asegura que el canvas se muestre en bloque */
 canvas {
     display: block;
-    touch-action: none; /* Desactiva gestos por defecto del navegador */
-    -ms-touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    width: 100%;
+    height: 100%;
 }
 
 /* Estilos generales para enlaces e imágenes */
 a {
     margin: 10px;
-    -webkit-tap-highlight-color: transparent; /* Elimina el highlight en dispositivos táctiles */
 }
 
 a img {
@@ -46,41 +42,36 @@ a img {
     border: 1px solid #ccc;
     border-radius: 5px;
     cursor: pointer;
-    -webkit-user-drag: none; /* Previene arrastre de imágenes en dispositivos táctiles */
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
 }
 
 a:hover img {
     opacity: 0.6;
-    transition: opacity 0.3s ease;
 }
 
-/* Enlaces de redes sociales posicionados fijos */
+/* Oculta por defecto los social links */
 .social-links {
     position: fixed;
     bottom: 30px;
-    right: 50px;
+    right: -200px; /* Fuera de la pantalla por defecto */
     z-index: 100;
-    display: -webkit-box;      /* Soporte para Safari */
-    display: -ms-flexbox;      /* Soporte para IE 10 */
-    display: -webkit-flex;     /* Soporte para navegadores webkit */
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 15px;
-    background: rgba(0, 0, 0, 0);
-    padding: 0;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
     border-radius: 25px;
+    transition: right 0.3s ease;
+}
+
+.social-links.visible {
+    right: 50px; /* Aparece cuando se solicita */
 }
 
 .social-links a {
     display: inline-block;
     color: inherit;
     text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
 }
 
 /* Ajuste para imágenes dentro de .social-links */
@@ -94,14 +85,13 @@ a:hover img {
 
 .social-links a:hover img {
     opacity: 0.5;
-    transition: opacity 0.3s ease;
 }
 
-/* Media query para dispositivos más pequeños */
+/* Media query para dispositivos pequeños */
 @media screen and (max-width: 768px) {
     .social-links {
-        right: 20px;
         bottom: 20px;
+        right: -200px;
     }
     
     .social-links a img {
