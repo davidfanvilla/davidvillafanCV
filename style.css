@@ -106,7 +106,7 @@ a:hover img {
 @media screen and (max-width: 768px) {
   .social-links {
     bottom: 20px;
-    right: -200px;
+    right: -2000px;
   }
   
   .social-links a img {
