@@ -85,7 +85,7 @@ a:hover img {
     right: 0;
     bottom: 50%;
     transform: translateY(50%);
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     padding: 10px 15px;
     font-size: 16px;
     font-weight: bold;
@@ -94,23 +94,19 @@ a:hover img {
     text-orientation: upright;
     cursor: pointer;
     border-radius: 10px 0 0 10px;
-    /* Aseguramos que el contenedor tenga posición relativa para posicionar la flecha */
     position: relative;
+    display: inline-block;   /* Asegura que tenga dimensiones */
+    z-index: 110;            /* Para que se muestre sobre otros elementos */
 }
 
 .social-tab::before {
     content: "←";
     position: absolute;
-    left: -25px;  /* Ajusta este valor para que la flecha quede a la izquierda de la pestaña */
+    left: -25px;  /* Ajusta según necesites */
     top: 50%;
     transform: translateY(-50%);
     font-size: 20px;
     color: white;
-}
-
-/* La pestaña se oculta al mostrar los social links */
-.social-tab.hidden {
-  display: none;
 }
 
 /* Media query para dispositivos pequeños */
