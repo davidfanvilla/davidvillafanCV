@@ -1,0 +1,75 @@
+/* Comportamiento suave de scroll en anclas */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Reinicio de márgenes y padding */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow-y: auto; /* Permite el scroll vertical */
+}
+
+/* Contenedor del canvas: ocupa el ancho completo y se adapta al contenido */
+#canvas-container {
+    width: 100%;
+    height: auto; /* Se adapta al contenido */
+    background-color: #0a0a0a;
+}
+
+/* Asegura que el canvas se muestre en bloque */
+canvas {
+    display: block;
+}
+
+/* Estilos generales para enlaces e imágenes */
+a {
+    margin: 10px;
+}
+
+a img {
+    width: 50px;
+    height: 50px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+a:hover img {
+    opacity: 0.6;
+}
+
+/* Enlaces de redes sociales posicionados fijos */
+.social-links {
+    position: fixed;
+    bottom: 30px;
+    right: 50px;
+    z-index: 100;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 15px;
+    background: rgba(0, 0, 0, 0);
+    padding: -30px;
+    border-radius: 25px;
+}
+
+.social-links a {
+    display: inline-block;
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Ajuste para imágenes dentro de .social-links */
+.social-links a img {
+    width: 50px;
+    height: 50px;
+    border: 0px solid #ccc;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.social-links a:hover img {
+    opacity: 0.5;
+}
