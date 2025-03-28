@@ -54,8 +54,7 @@ function setup() {
   // Ocultar barra de enlaces en dispositivos móviles
   if (/Mobi|Android/i.test(navigator.userAgent)) {
     document.getElementById('social-links').style.display = 'none';
-  
-}
+  }
 
   // Manejar evento click para botón "DESLIZAR" en computadoras
   document.getElementById('deslizar-button').addEventListener('click', function() {
@@ -63,6 +62,7 @@ function setup() {
       document.getElementById('social-links').classList.toggle('visible');
     }
   });
+}
 
 function draw() {
   background(10);
@@ -143,59 +143,22 @@ function handleTouchMove(event) {
 function handleTouchEnd(event) {
   event.preventDefault();
   touchEndX = event.changedTouches[0].clientX;
-  // Se pueden reiniciar o ajustar variables si se requiere
 }
 
-// Eventos de mouse para detectar swipe horizontal
-function mousePressed() {
-  mouseDown = true;
-  mouseStartX = mouseX;
-  mouseStartY = mouseY;
+// Función para detectar si es un dispositivo móvil
+function isMobile() {
+  return /Mobi|Android/i.test(navigator.userAgent);
 }
 
-function mouseDragged() {
-  if (mouseDown) {
-    mouseDeltaX = mouseX - mouseStartX;
-  }
-}
-
-function mouseReleased() {
-  mouseDown = false;
-  if (mouseDeltaX < -50) { // Desliza a la izquierda
-    showSocialLinks();
-  } else if (mouseDeltaX > 50) { // Desliza a la derecha para ocultar
-    hideSocialLinks();
-  }
-  mouseDeltaX = 0;
-}
-
-// Funciones para mostrar y ocultar los social links y la pestaña
+// Funciones para mostrar y ocultar los enlaces sociales
 function showSocialLinks() {
-  let socialLinks = document.getElementById('social-links');
-  let socialTab = document.getElementById('social-tab');
-  socialLinks.classList.add('visible');
-  socialTab.classList.add('hidden');
-  socialLinksVisible = false;
+  document.getElementById('social-links').classList.add('visible');
+  socialLinksVisible = true;
 }
 
 function hideSocialLinks() {
-  let socialLinks = document.getElementById('social-links');
-  let socialTab = document.getElementById('social-tab');
-  socialLinks.classList.remove('visible');
-  socialTab.classList.remove('hidden');
+  document.getElementById('social-links').classList.remove('visible');
   socialLinksVisible = false;
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  cvGraphics.resizeCanvas(windowWidth, contentHeight);
-  dibujarCV();
-}
-
-function mouseWheel(event) {
-  // Se mantiene scroll universal (valor de event.delta se usa directamente)
-  velocity += event.delta * 1.0;
-  return false;
 }
 
 function dibujarCV() {
