@@ -94,7 +94,7 @@ a:hover img {
   cursor: pointer;
   transition: right 0.3s ease;
   writing-mode: vertical-rl;
-  text-orientation: mixed;
+  text-orientation: upright;
 }
 
 /* La pestaña se oculta al mostrar los social links */
