@@ -15,6 +15,12 @@ let touchStartY = 0;
 let touchEndX = 0;
 let socialLinksVisible = false;
 
+// Variables para soporte de mouse swipe
+let mouseDown = false;
+let mouseStartX = 0;
+let mouseStartY = 0;
+let mouseDeltaX = 0;
+
 function setup() {
   // Ajusta el canvas para llenar el ancho de la ventana
   let canvas = createCanvas(windowWidth, windowHeight);
@@ -54,7 +60,7 @@ function draw() {
   lastTime = currentTime;
 
   scrollY += velocity * deltaTime;
-  velocity *= 0.95; // Reduce la velocidad gradualmente para un efecto de inercia
+  velocity *= 0.95; // Efecto de inercia
 
   scrollY = constrain(scrollY, 0, contentHeight - height); // Limita el scroll al contenido
 
@@ -97,6 +103,7 @@ function draw() {
   pop();
 }
 
+// Eventos táctiles
 function handleTouchStart(event) {
   event.preventDefault();
   touchStartX = event.touches[0].clientX;
@@ -110,24 +117,61 @@ function handleTouchMove(event) {
   let deltaX = currentX - touchStartX;
   let deltaY = currentY - touchStartY;
 
-  // Scroll vertical
-  velocity += deltaY * 0.5;
+  // Invertir la dirección para lograr scroll universal:
+  velocity -= deltaY * 0.5;
 
-  // Control de social links
-  if (deltaX < -50) { // Deslizamiento a la izquierda
-    document.getElementById('social-links').classList.add('visible');
-    socialLinksVisible = true;
+  // Control de social links por deslizamiento horizontal
+  if (deltaX < -50) { // Desliza a la izquierda
+    showSocialLinks();
+  } else if (deltaX > 50) { // Desliza a la derecha para ocultar
+    hideSocialLinks();
   }
 }
 
 function handleTouchEnd(event) {
   event.preventDefault();
   touchEndX = event.changedTouches[0].clientX;
+  // Se pueden reiniciar o ajustar variables si se requiere
+}
 
-  // Si no hay deslizamiento a la izquierda, ocultar social links
-  if (!socialLinksVisible) {
-    document.getElementById('social-links').classList.remove('visible');
+// Eventos de mouse para detectar swipe horizontal
+function mousePressed() {
+  mouseDown = true;
+  mouseStartX = mouseX;
+  mouseStartY = mouseY;
+}
+
+function mouseDragged() {
+  if (mouseDown) {
+    mouseDeltaX = mouseX - mouseStartX;
   }
+}
+
+function mouseReleased() {
+  mouseDown = false;
+  if (mouseDeltaX < -50) { // Desliza a la izquierda
+    showSocialLinks();
+  } else if (mouseDeltaX > 50) { // Desliza a la derecha para ocultar
+    hideSocialLinks();
+  }
+  mouseDeltaX = 0;
+}
+
+// Funciones para mostrar y ocultar los social links y la pestaña
+function showSocialLinks() {
+  let socialLinks = document.getElementById('social-links');
+  let socialTab = document.getElementById('social-tab');
+  socialLinks.classList.add('visible');
+  socialTab.classList.add('hidden');
+  socialLinksVisible = true;
+}
+
+function hideSocialLinks() {
+  let socialLinks = document.getElementById('social-links');
+  let socialTab = document.getElementById('social-tab');
+  socialLinks.classList.remove('visible');
+  socialTab.classList.remove('hidden');
+  socialLinksVisible = false;
 }
 
 function windowResized() {
@@ -137,7 +181,8 @@ function windowResized() {
 }
 
 function mouseWheel(event) {
-  velocity += event.delta * 1.0;
+  // Se mantiene scroll universal (valor de event.delta se usa directamente)
+  velocity += event.delta;
   return false;
 }
 
