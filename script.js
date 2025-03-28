@@ -56,13 +56,13 @@ function setup() {
     document.getElementById('social-links').style.display = 'none';
   }
 
-  // Manejar evento click para botón "DESLIZAR" en computadoras
-  document.getElementById('deslizar-button').addEventListener('click', function() {
+  // Manejar evento click para la pestaña "DESLIZA" en computadoras
+  document.getElementById('social-tab').addEventListener('click', function() {
     if (!/Mobi|Android/i.test(navigator.userAgent)) {
       document.getElementById('social-links').classList.toggle('visible');
     }
   });
-}
+}  // <-- Cierre de setup()
 
 function draw() {
   background(10);
@@ -145,9 +145,27 @@ function handleTouchEnd(event) {
   touchEndX = event.changedTouches[0].clientX;
 }
 
-// Función para detectar si es un dispositivo móvil
-function isMobile() {
-  return /Mobi|Android/i.test(navigator.userAgent);
+// Eventos de mouse para detectar swipe horizontal
+function mousePressed() {
+  mouseDown = true;
+  mouseStartX = mouseX;
+  mouseStartY = mouseY;
+}
+
+function mouseDragged() {
+  if (mouseDown) {
+    mouseDeltaX = mouseX - mouseStartX;
+  }
+}
+
+function mouseReleased() {
+  mouseDown = false;
+  if (mouseDeltaX < -50) { // Desliza a la izquierda
+    showSocialLinks();
+  } else if (mouseDeltaX > 50) { // Desliza a la derecha para ocultar
+    hideSocialLinks();
+  }
+  mouseDeltaX = 0;
 }
 
 // Funciones para mostrar y ocultar los enlaces sociales
@@ -159,6 +177,17 @@ function showSocialLinks() {
 function hideSocialLinks() {
   document.getElementById('social-links').classList.remove('visible');
   socialLinksVisible = false;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  cvGraphics.resizeCanvas(windowWidth, contentHeight);
+  dibujarCV();
+}
+
+function mouseWheel(event) {
+  velocity += event.delta * 1.0;
+  return false;
 }
 
 function dibujarCV() {
