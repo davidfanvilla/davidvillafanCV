@@ -50,7 +50,19 @@ function setup() {
   canvas.elt.addEventListener('touchstart', handleTouchStart, { passive: false });
   canvas.elt.addEventListener('touchmove', handleTouchMove, { passive: false });
   canvas.elt.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+  // Ocultar barra de enlaces en dispositivos móviles
+  if (/Mobi|Android/i.test(navigator.userAgent)) {
+    document.getElementById('social-links').style.display = 'none';
+  
 }
+
+  // Manejar evento click para botón "DESLIZAR" en computadoras
+  document.getElementById('deslizar-button').addEventListener('click', function() {
+    if (!/Mobi|Android/i.test(navigator.userAgent)) {
+      document.getElementById('social-links').classList.toggle('visible');
+    }
+  });
 
 function draw() {
   background(10);
@@ -163,7 +175,7 @@ function showSocialLinks() {
   let socialTab = document.getElementById('social-tab');
   socialLinks.classList.add('visible');
   socialTab.classList.add('hidden');
-  socialLinksVisible = true;
+  socialLinksVisible = false;
 }
 
 function hideSocialLinks() {
@@ -182,7 +194,7 @@ function windowResized() {
 
 function mouseWheel(event) {
   // Se mantiene scroll universal (valor de event.delta se usa directamente)
-  velocity += event.delta;
+  velocity += event.delta * 1.0;
   return false;
 }
 
