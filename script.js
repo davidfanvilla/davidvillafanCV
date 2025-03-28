@@ -10,10 +10,10 @@ let velocity = 0;
 let lastTime = 0;
 
 // Variables para soporte táctil
+let touchStartX = 0;
 let touchStartY = 0;
-let touchLastY = 0;
-let touchVelocity = 0;
-let touchStartTime = 0;
+let touchEndX = 0;
+let socialLinksVisible = false;
 
 function setup() {
   // Ajusta el canvas para llenar el ancho de la ventana
@@ -97,35 +97,48 @@ function draw() {
   pop();
 }
 
-// Funciones para manejo de eventos táctiles
 function handleTouchStart(event) {
   event.preventDefault();
+  touchStartX = event.touches[0].clientX;
   touchStartY = event.touches[0].clientY;
-  touchLastY = touchStartY;
-  touchStartTime = millis();
-  velocity = 0;
 }
 
 function handleTouchMove(event) {
   event.preventDefault();
+  let currentX = event.touches[0].clientX;
   let currentY = event.touches[0].clientY;
-  let deltaY = touchLastY - currentY;
-  
-  velocity = deltaY * 2; // Ajusta la sensibilidad del scroll
-  scrollY += deltaY;
-  
-  touchLastY = currentY;
+  let deltaX = currentX - touchStartX;
+  let deltaY = currentY - touchStartY;
+
+  // Scroll vertical
+  velocity += deltaY * 0.5;
+
+  // Control de social links
+  if (deltaX < -50) { // Deslizamiento a la izquierda
+    document.getElementById('social-links').classList.add('visible');
+    socialLinksVisible = true;
+  }
 }
 
 function handleTouchEnd(event) {
   event.preventDefault();
-  let touchEndTime = millis();
-  let touchDuration = touchEndTime - touchStartTime;
-  
-  // Añadir efecto de inercia
-  if (touchDuration < 200) {
-    velocity *= 5; // Impulso adicional si el gesto es rápido
+  touchEndX = event.changedTouches[0].clientX;
+
+  // Si no hay deslizamiento a la izquierda, ocultar social links
+  if (!socialLinksVisible) {
+    document.getElementById('social-links').classList.remove('visible');
   }
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  cvGraphics.resizeCanvas(windowWidth, contentHeight);
+  dibujarCV();
+}
+
+function mouseWheel(event) {
+  velocity += event.delta * 1.0;
+  return false;
 }
 
 function dibujarCV() {
