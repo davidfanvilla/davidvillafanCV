@@ -1,34 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self';">
-  <title>CV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
+  <title>David Villafán Sánchez · CV</title>
+  <meta name="description" content="CV de David Villafán Sánchez: operaciones aéreas, arte generativo con p5.js y desarrollo web.">
+  <meta name="theme-color" content="#05060f">
+
+  <!-- Vista previa al compartir el enlace (WhatsApp, redes, etc.) -->
+  <meta property="og:type" content="profile">
+  <meta property="og:title" content="David Villafán Sánchez · CV">
+  <meta property="og:description" content="Operaciones aéreas · Arte generativo · Desarrollo web">
+  <meta property="og:image" content="img/cv.png">
+
+  <link rel="icon" href="img/cv.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="canvas-container"></div>
-  <div id="social-links" class="social-links">
-    <a href="https://www.instagram.com/davidfanvilla/" target="_blank" rel="noopener noreferrer">
-      <img src="instagramlogo.png" alt="Instagram">
+  <!-- Fondo generativo (p5.js) -->
+  <div id="canvas-container" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <main class="cv">
+    <header class="hero reveal">
+      <p class="hero__tag">// CURRICULUM VITAE</p>
+      <h1 class="hero__name" data-text="David Villafán Sánchez">David Villafán Sánchez</h1>
+      <p class="hero__role">Operaciones aéreas <span>·</span> Arte generativo <span>·</span> Desarrollo web</p>
+
+      <ul class="contact">
+        <li><span class="contact__label">Nacimiento</span> 18/02/1990</li>
+        <li><span class="contact__label">Correo</span> <a href="mailto:davidvillafan180290@hotmail.com">davidvillafan180290@hotmail.com</a></li>
+        <li><span class="contact__label">Teléfono</span> <a href="tel:+525661288993">56 61 28 89 93</a></li>
+      </ul>
+    </header>
+
+    <section class="panel reveal" aria-labelledby="t-habilidades">
+      <h2 id="t-habilidades"><span class="panel__num">01</span> Habilidades</h2>
+      <ul class="chips">
+        <li>Buena comunicación</li>
+        <li>Resolución de problemas</li>
+        <li>Liderazgo</li>
+        <li>Adaptación</li>
+        <li>Persuasión</li>
+      </ul>
+    </section>
+
+    <section class="panel reveal" aria-labelledby="t-experiencia">
+      <h2 id="t-experiencia"><span class="panel__num">02</span> Experiencia laboral</h2>
+      <div class="job">
+        <h3>Escuela de Aviación México</h3>
+        <ul class="timeline">
+          <li>Jefe de Operaciones Aéreas</li>
+          <li>Área de Compras de partes aeronáuticas</li>
+          <li>Administrativo en el Área de Control Escolar</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel reveal" aria-labelledby="t-herramientas">
+      <h2 id="t-herramientas"><span class="panel__num">03</span> Herramientas de trabajo</h2>
+      <dl class="tools">
+        <dt>Inteligencia artificial</dt>
+        <dd>Uso de prompts en ChatGPT, Gemini, Groq, Claude y DALL·E (generación de imágenes con texto). Hago <em>vibe coding</em> y puedo crear una página web desde cero.</dd>
+
+        <dt>Software</dt>
+        <dd>Visual Studio Code, Cursor, Blender, Processing y p5.js. Con estos dos últimos tengo proyectos de arte generativo.</dd>
+
+        <dt>Lenguajes</dt>
+        <dd>HTML, CSS y JavaScript.</dd>
+      </dl>
+    </section>
+
+    <p class="footnote reveal">Fondo generado en tiempo real con p5.js · mueve el cursor o toca la pantalla</p>
+  </main>
+
+  <!-- Barra de contacto: siempre visible -->
+  <nav class="dock" aria-label="Contacto y redes">
+    <a href="https://www.instagram.com/davidfanvilla/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+      <img src="img/instagram.png" alt="" width="40" height="40">
     </a>
-    <a href="https://www.tiktok.com/@david_villafan" target="_blank" rel="noopener noreferrer">
-      <img src="tiktoklogo.png" alt="TikTok">
+    <a href="https://www.tiktok.com/@david_villafan" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+      <img src="img/tiktok.png" alt="" width="40" height="40">
     </a>
-    <!-- Enlace para descargar el CV en PDF -->
-    <a href="david cv 20251.pdf" download="david cv 20251.pdf">
-      <img src="CV.png" alt="CV">
+    <a href="david-villafan-cv.pdf" download aria-label="Descargar CV en PDF">
+      <img src="img/cv.png" alt="" width="40" height="40">
     </a>
-    <!-- Enlace de WhatsApp para contactarte -->
-    <a href="https://wa.me/525661288993" target="_blank" rel="noopener noreferrer">
-      <img src="whatsapp.png" alt="WhatsApp">
+    <a href="https://wa.me/525661288993" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+      <img src="img/whatsapp.png" alt="" width="40" height="40">
     </a>
-  </div>
-  <!-- Pestaña para indicar "DESLIZA" en vertical -->
-  <div id="social-tab" class="social-tab"> DESLIZA < </div>
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  </nav>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

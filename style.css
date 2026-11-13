@@ -1,83 +1,367 @@
-/* Estilos generales */
-html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: #0a0a0a;
+/* ==========================================================
+   Paleta y variables
+   ========================================================== */
+:root {
+  --bg: #05060f;
+  --cyan: #22e6ff;
+  --magenta: #ff2bd6;
+  --violet: #8a5cff;
+  --text: #e8f1ff;
+  --muted: #8fa3c7;
+  --panel: rgba(10, 16, 36, 0.55);
+  --border: rgba(34, 230, 255, 0.25);
+  --font-display: "Orbitron", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Rajdhani", "Segoe UI", system-ui, sans-serif;
 }
 
-/* Contenedor del canvas */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+}
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+/* ==========================================================
+   Capas de fondo
+   ========================================================== */
 #canvas-container {
-    width: 100vw;
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+#canvas-container canvas {
+  display: block;
 }
 
-/* Redes sociales - Ocultas por defecto */
-.social-links {
-    position: fixed;
-    bottom: 30px;
-    right: -2000px; /* Inicialmente ocultas */
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 15px;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 10px;
-    border-radius: 25px;
-    transition: right 0.3s ease;
+/* Líneas de escaneo tipo monitor CRT + viñeta */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.65) 100%);
 }
 
-/* Muestra los íconos cuando se activa */
-.social-links.visible {
-    right: 50px;
+/* ==========================================================
+   Contenido del CV
+   ========================================================== */
+.cv {
+  position: relative;
+  z-index: 2;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 12vh 20px 140px;
+  display: grid;
+  gap: 28px;
 }
 
-/* Estilos de los iconos */
-.social-links a img {
-    width: 50px;
-    height: 50px;
-    border-radius: 5px;
-    cursor: pointer;
+/* --- Encabezado --- */
+.hero {
+  text-align: center;
+  padding: 24px 0 12px;
+}
+.hero__tag {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.35em;
+  color: var(--cyan);
+  opacity: 0.8;
+}
+.hero__name {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(1.9rem, 6.5vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--cyan), #ffffff 45%, var(--magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(34, 230, 255, 0.35));
+}
+.hero__role {
+  margin: 14px 0 28px;
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hero__role span {
+  color: var(--magenta);
 }
 
-/* Pestaña "DESLIZA" */
-.social-tab {
-    position: fixed;
-    right: 0;
-    bottom: 50%;
-    transform: translateY(50%);
-    background: rgba(255, 255, 255, 0.2);
-    padding: 10px 15px;
-    font-size: 16px;
-    font-weight: bold;
-    color: white;
-    writing-mode: vertical-rl; /* Texto vertical */
-    text-align: center;
-    text-orientation: upright;
-    cursor: pointer;
-    border-radius: 10px 0 0 10px;
+.contact {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+}
+.contact li {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(5, 10, 25, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  overflow-wrap: anywhere;
+}
+.contact__label {
+  margin-right: 6px;
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--magenta);
 }
 
-/* Para móviles */
-@media screen and (max-width: 768px) {
-    .social-links {
-        bottom: 20px;
-        right: -2000px;
-    }
-
-    .social-links a img {
-        width: 40px;
-        height: 40px;
-    }
-
-    .social-tab {
-        bottom: 50%;
-    }
+/* --- Paneles tipo HUD (vidrio + esquinas de neón) --- */
+.panel {
+  position: relative;
+  padding: 28px 28px 30px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+  box-shadow: inset 0 0 40px rgba(34, 230, 255, 0.06);
+}
+/* Línea de luz superior */
+.panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), transparent);
+  opacity: 0.8;
+}
+/* Esquina inferior derecha */
+.panel::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 18px;
+  height: 18px;
+  border-right: 2px solid var(--magenta);
+  border-bottom: 2px solid var(--magenta);
+  opacity: 0.8;
 }
 
+.panel h2 {
+  margin: 0 0 20px;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 3.4vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.panel__num {
+  margin-right: 10px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan);
+}
 
+/* Habilidades como "chips" */
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chips li {
+  padding: 6px 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 43, 214, 0.45);
+  background: rgba(255, 43, 214, 0.08);
+  border-radius: 4px;
+}
+
+/* Experiencia como línea de tiempo */
+.job h3 {
+  margin: 0 0 12px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--cyan);
+}
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 22px;
+  border-left: 1px solid var(--border);
+}
+.timeline li {
+  position: relative;
+  padding: 6px 0;
+}
+.timeline li::before {
+  content: "";
+  position: absolute;
+  left: -27px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translateY(-50%) rotate(45deg);
+  background: var(--bg);
+  border: 2px solid var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+/* Herramientas */
+.tools {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 14px 22px;
+}
+.tools dt {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--magenta);
+  padding-top: 4px;
+}
+.tools dd {
+  margin: 0;
+}
+
+.footnote {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-shadow: 0 0 6px #000, 0 0 12px #000;
+}
+
+/* ==========================================================
+   Barra de contacto (dock)
+   ========================================================== */
+.dock {
+  position: fixed;
+  z-index: 3;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  padding: 10px 16px;
+  background: rgba(5, 10, 25, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 24px rgba(34, 230, 255, 0.15);
+}
+.dock a {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.dock a:hover,
+.dock a:focus-visible {
+  transform: translateY(-4px) scale(1.08);
+  filter: drop-shadow(0 0 10px var(--cyan));
+  text-decoration: none;
+}
+.dock img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+/* ==========================================================
+   Animación de aparición al hacer scroll
+   ========================================================== */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ==========================================================
+   Móvil
+   ========================================================== */
+@media (max-width: 600px) {
+  body {
+    font-size: 1.05rem;
+  }
+  .cv {
+    padding-top: 8vh;
+    gap: 22px;
+  }
+  .panel {
+    padding: 22px 18px 24px;
+  }
+  .tools {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .tools dd {
+    margin-bottom: 12px;
+  }
+  .dock img {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Respeta a quien prefiere menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
