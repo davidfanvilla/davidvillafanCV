@@ -448,6 +448,59 @@ $("full").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen?.();
 });
+// --- Grabación de video (del mismo canvas que ves, sin volver a procesar nada) ---
+let recorder, recChunks = [], recStart = 0, recTimer;
+function pickMime() {
+  const opts = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  return opts.find((m) => window.MediaRecorder?.isTypeSupported(m)) || "";
+}
+function stopRec() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+$("rec").addEventListener("click", () => {
+  const btn = $("rec");
+  if (recorder && recorder.state === "recording") { stopRec(); return; }
+  if (!window.MediaRecorder || !stage.captureStream) {
+    ui.fps.textContent = "Tu navegador no puede grabar video";
+    return;
+  }
+  const mime = pickMime();
+  try {
+    recorder = new MediaRecorder(stage.captureStream(30), mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined);
+  } catch (e) {
+    console.error(e);
+    ui.fps.textContent = "No se pudo iniciar la grabación";
+    return;
+  }
+  recChunks = [];
+  recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+  recorder.onstop = () => {
+    clearInterval(recTimer);
+    btn.textContent = "● Grabar";
+    btn.classList.remove("recording");
+    $("recDot").hidden = true;
+    const type = recorder.mimeType || mime || "video/webm";
+    const blob = new Blob(recChunks, { type });
+    recChunks = [];
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.download = "cuerpo-ascii-3d." + (type.includes("mp4") ? "mp4" : "webm");
+    a.href = url;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+  recorder.start(1000);
+  recStart = performance.now();
+  btn.textContent = "■ Detener";
+  btn.classList.add("recording");
+  $("recDot").hidden = false;
+  recTimer = setInterval(() => {
+    const sec = Math.floor((performance.now() - recStart) / 1000);
+    $("recTime").textContent = `${(sec / 60) | 0}:${String(sec % 60).padStart(2, "0")}`;
+  }, 250);
+});
+window.addEventListener("pagehide", stopRec);
+
 $("shot").addEventListener("click", () => {
   const a = document.createElement("a");
   a.download = "cuerpo-ascii-3d.png";
@@ -455,4 +508,8 @@ $("shot").addEventListener("click", () => {
   a.click();
 });
 let resizeT;
-window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => video.videoWidth && layout(), 120); });
+window.addEventListener("resize", () => {
+  if (recorder && recorder.state === "recording") return; // redimensionar cortaría la grabación
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => video.videoWidth && layout(), 120);
+});

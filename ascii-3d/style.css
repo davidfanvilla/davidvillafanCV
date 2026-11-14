@@ -36,3 +36,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); o
 .panel__row .btn { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
 .fps { margin: 0; opacity: .6; text-align: right; }
 .tip { font-size: 13px; color: var(--accent); }
+.rec-dot { position: fixed; top: 14px; left: 14px; z-index: 4; padding: 6px 12px; border-radius: 999px;
+  background: rgba(0, 0, 0, .6); border: 1px solid #ff3b3b; color: #ff6b6b; font-size: 13px;
+  letter-spacing: .08em; animation: recPulse 1.2s infinite; }
+.rec-dot[hidden] { display: none; }
+@keyframes recPulse { 50% { opacity: .35; } }
+.btn.recording { border-color: #ff3b3b; color: #ff6b6b; background: rgba(255, 59, 59, .15); }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
