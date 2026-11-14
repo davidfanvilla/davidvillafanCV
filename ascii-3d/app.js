@@ -429,6 +429,8 @@ $("start").addEventListener("click", async () => {
     buildAtlas(ui.palette.value); shuffle();
     await Promise.all([loadModel(), startCamera()]);
     $("intro").hidden = true; $("panel").hidden = false;
+    // En teléfonos el panel arranca cerrado para no tapar la imagen
+    if (window.matchMedia("(max-width: 760px), (pointer: coarse)").matches) $("panel").classList.add("collapsed");
     requestAnimationFrame(frame);
   } catch (e) {
     console.error(e);
