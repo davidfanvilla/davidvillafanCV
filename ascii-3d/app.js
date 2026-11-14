@@ -22,7 +22,7 @@ const PALETTES = {
 // ---------- DOM ----------
 const $ = (id) => document.getElementById(id);
 const video = $("video"), stage = $("stage"), ctx = stage.getContext("2d", { alpha: false });
-const ui = { cell: $("cell"), depth: $("depth"), spin: $("spin"), palette: $("palette"), fps: $("fps") };
+const ui = { dur: $("dur"), cell: $("cell"), depth: $("depth"), spin: $("spin"), palette: $("palette"), fps: $("fps") };
 
 // Canvas pequeño: entrada para la segmentación y para leer el brillo
 const seg = document.createElement("canvas");
@@ -42,7 +42,12 @@ let atlas, atlasCols = 0;
 let slots = new Uint8Array(SLOTS);       // índices a CHAR_POOL
 let lastShuffle = 0, lastVideoTime = -1;
 let pivotX = 0, pivotY = 0;
-let px = new Uint8ClampedArray(0);       // píxeles del frame pequeño (brillo)
+let px = new Uint8ClampedArray(0);
+// Desintegración: el código aparece, se sostiene y luego se deshace hasta desaparecer
+const HOLD_MS = 3000;                    // tiempo con el cuerpo completo antes de deshacerse
+const FADE_WIN = 0.18;                   // cuánto dura la caída de cada carácter (fracción)
+let dissolveStart = 0;                   // 0 = esperando detectar un cuerpo
+let rndA = new Float32Array(0), rndB = new Float32Array(0);       // píxeles del frame pequeño (brillo)
 // Buffers reutilizables (sin asignaciones por frame)
 let bufX, bufY, bufS, bufBX, bufBY, bufBS, bufA, bufG;
 
@@ -119,6 +124,20 @@ function layoutGrid() {
   bufX = new Float32Array(n); bufY = new Float32Array(n); bufS = new Float32Array(n);
   bufBX = new Float32Array(n); bufBY = new Float32Array(n); bufBS = new Float32Array(n);
   bufA = new Float32Array(n); bufG = new Uint8Array(n);
+  // Umbral de desintegración por celda: ruido + de arriba hacia abajo (como ceniza)
+  rndA = new Float32Array(n); rndB = new Float32Array(n);
+  for (let gy = 0; gy < rows; gy++) for (let gx = 0; gx < cols; gx++) {
+    const i = gy * cols + gx;
+    rndA[i] = Math.random() * 0.6 + (gy / rows) * 0.4;
+    rndB[i] = Math.random() - 0.5;
+  }
+}
+
+// Progreso de la desintegración: 0 = completo, >1 = no queda nada
+function dissolveProgress(now) {
+  if (!dissolveStart) return 0;
+  const dur = +ui.dur.value * 1000;
+  return Math.max(0, (now - dissolveStart - HOLD_MS) / dur) * (1 + FADE_WIN);
 }
 
 // ---------- Cámara ----------
@@ -155,6 +174,18 @@ function frame(now) {
   if (video.readyState < 2) return;
   const mirror = facing === "user";
   const sw = seg.width, sh = seg.height;
+  const prog = dissolveProgress(now);
+  const finished = prog >= 1 + FADE_WIN;
+  if (finished) {
+    // Ya no queda código: solo el mundo real (sin segmentar, ahorra batería)
+    ctx.save();
+    if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
+    ctx.restore();
+    $("again").hidden = false;
+    ui.fps.textContent = "El código se deshizo";
+    return;
+  }
 
   // 1) Frame pequeño de la cámara (espejado si es la cámara frontal)
   const newFrame = video.currentTime !== lastVideoTime;
@@ -186,7 +217,9 @@ function frame(now) {
   if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
   ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
   ctx.restore();
-  ctx.drawImage(sil, 0, 0, W, H);
+  // La silueta oscura se aclara conforme el código se deshace
+  const silAlpha = Math.max(0, 1 - (prog / (1 + FADE_WIN)) ** 2);
+  if (silAlpha > 0) { ctx.globalAlpha = silAlpha; ctx.drawImage(sil, 0, 0, W, H); ctx.globalAlpha = 1; }
 
   // 4) Cambiar caracteres periódicamente (como el sketch original)
   if (now - lastShuffle > SHUFFLE_MS) { shuffle(); lastShuffle = now; }
@@ -206,19 +239,26 @@ function frame(now) {
     const y0 = gy * cell + half;
     const ripple = Math.sin(t * 2.2 + gy * 0.22) * cell * 0.6 * (depth > 0 ? 1 : 0);
     for (let gx = 0; gx < cols; gx++) {
-      const mi = cellIdx[gy * cols + gx];
+      const ci = gy * cols + gx;
+      const mi = cellIdx[ci];
       const conf = mask[mi];
       if (conf < 0.5) continue;
+      // Desintegración: k = 0 intacto, 1 desaparecido
+      const k = prog <= rndA[ci] ? 0 : (prog - rndA[ci]) / FADE_WIN;
+      if (k >= 1) continue;
       const p = mi * 4;
       const lum = (px[p] * 0.299 + px[p + 1] * 0.587 + px[p + 2] * 0.114) / 255;
       const g = slots[Math.min(SLOTS - 1, (lum * SLOTS) | 0)];
       if (g === 0) continue; // espacio
-      const x0 = gx * cell + half;
-      sumX += x0; sumY += y0;
+      // Los caracteres que se deshacen flotan hacia arriba y se dispersan como ceniza
+      const k2 = k * k;
+      const x0 = gx * cell + half + rndB[ci] * k2 * cell * 10 + Math.sin(t * 3 + ci) * k * cell;
+      const yk = y0 - k2 * cell * 9;
+      sumX += gx * cell + half; sumY += y0;
 
       // Lo más brillante "sale" hacia la cámara
-      const z = -(lum - 0.35) * depth + ripple;
-      const dx = x0 - pivotX, dy = y0 - pivotY;
+      const z = -(lum - 0.35) * depth + ripple - k2 * depth * 0.8;
+      const dx = x0 - pivotX, dy = yk - pivotY;
       // Rotación Y y luego X
       let rx = dx * cyA + z * syA;
       let rz = -dx * syA + z * cyA;
@@ -234,12 +274,14 @@ function frame(now) {
       rz = dy * sxA + rz * cxA;
       s = F / (F + rz);
       bufBX[count] = pivotX + rx * s; bufBY[count] = pivotY + ry * s; bufBS[count] = s;
-      bufA[count] = Math.min(1, (conf - 0.5) * 3 + 0.2) * (0.55 + lum * 0.45);
+      bufA[count] = Math.min(1, (conf - 0.5) * 3 + 0.2) * (0.55 + lum * 0.45) * (1 - k);
       bufG[count] = g;
       count++;
     }
   }
   // El pivote de giro sigue al cuerpo, para que el ASCII no se despegue de la persona
+  // Empieza la cuenta en cuanto aparece un cuerpo
+  if (!dissolveStart && count > 80) dissolveStart = now;
   if (count > 0) { pivotX += (sumX / count - pivotX) * 0.15; pivotY += (sumY / count - pivotY) * 0.15; }
 
   // 6) Dibujo: primero toda la extrusión (fondo + medio), luego el frente
@@ -282,6 +324,7 @@ $("start").addEventListener("click", async () => {
 });
 
 ui.cell.addEventListener("input", layoutGrid);
+$("again").addEventListener("click", () => { dissolveStart = 0; mask.fill(0); $("again").hidden = true; });
 ui.palette.addEventListener("change", () => buildAtlas(ui.palette.value));
 $("togglePanel").addEventListener("click", () => $("panel").classList.toggle("collapsed"));
 $("flip").addEventListener("click", async () => { facing = facing === "user" ? "environment" : "user"; try { await startCamera(); } catch (e) { console.error(e); } });
