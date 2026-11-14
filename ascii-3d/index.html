@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Cuerpo ASCII 3D · David Villafán</title>
+  <meta name="description" content="Tu cuerpo convertido en código ASCII 3D en tiempo real, sobre el mundo real que ve tu cámara.">
+  <meta name="theme-color" content="#000000">
+  <meta property="og:title" content="Cuerpo ASCII 3D">
+  <meta property="og:description" content="Tu cuerpo convertido en código ASCII 3D en tiempo real.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="stage"></canvas>
+
+  <section id="intro" class="intro">
+    <div class="intro__card">
+      <h1>CUERPO<span>ASCII</span>3D</h1>
+      <p>Tu cuerpo se convierte en código en tiempo real. Lo demás se queda como el mundo real.</p>
+      <button id="start" class="btn btn--big">Activar cámara</button>
+      <p id="status" class="status">Todo se procesa en tu dispositivo. Nada se sube a internet.</p>
+    </div>
+  </section>
+
+  <aside id="panel" class="panel" hidden>
+    <button id="togglePanel" class="panel__toggle" aria-label="Mostrar/ocultar controles">⚙</button>
+    <div class="panel__body">
+      <label>Densidad <input id="cell" type="range" min="7" max="24" value="12"></label>
+      <label>Profundidad 3D <input id="depth" type="range" min="0" max="100" value="60"></label>
+      <label>Giro 3D <input id="spin" type="range" min="0" max="100" value="45"></label>
+      <label>Paleta
+        <select id="palette">
+          <option value="cyan">Cian</option>
+          <option value="matrix">Matrix</option>
+          <option value="fire">Fuego</option>
+          <option value="mono">Blanco</option>
+        </select>
+      </label>
+      <div class="panel__row">
+        <button id="flip" class="btn">Cambiar cámara</button>
+        <button id="shot" class="btn">Foto</button>
+        <button id="full" class="btn">Pantalla completa</button>
+      </div>
+      <p id="fps" class="fps">-- fps</p>
+    </div>
+  </aside>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
