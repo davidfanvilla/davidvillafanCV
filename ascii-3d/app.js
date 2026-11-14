@@ -35,12 +35,18 @@ let silImg;
 // Se aprende una "placa" del fondo (solo con los píxeles donde no hay persona) y se
 // pinta encima del cuerpo al mismo ritmo en que se deshace el código.
 const mk = (w = 1, h = 1) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
-const PLATE_SIZE = 480;                  // resolución de la placa del fondo (lado mayor)
+const c2r = (c) => c.getContext("2d", { willReadFrequently: true });
+const PLATE_SIZE = 640;                  // resolución de la placa del fondo (lado mayor)
 const silBase = mk(), eraseC = mk(), learnMaskC = mk(), cellKC = mk();
 const frameC = mk(), learnC = mk(), plateC = mk(), fillC = mk(), outC = mk();
-const lv = [mk(), mk()];                 // versiones pequeñas para rellenar huecos del fondo
+let pyr = [];                            // pirámide para rellenar lo que nunca se vio
+const oneC = mk(1, 1);                   // para leer el color promedio del fondo
+const tmpC = mk();                       // auxiliar (un canvas no se puede dibujar sobre sí mismo)
+const floodC = mk();                     // relleno que copia el color del vecino más cercano
+const noiseC = mk(96, 96);               // grano de cámara, para que el relleno no se vea de plástico
+let noisePattern = null;
 const c2 = (c) => c.getContext("2d");
-let eraseImg, learnImg, cellKImg, dmask = new Float32Array(0), tmpMask = new Float32Array(0);
+let eraseImg, learnImg, cellKImg, dmask = new Float32Array(0), tmpMask = new Float32Array(0), tmp2 = new Float32Array(0);
 let kCell = new Float32Array(0);
 
 // ---------- Estado ----------
@@ -118,11 +124,17 @@ function layout() {
   eraseImg = silCtx.createImageData(sil.width, sil.height);
   learnImg = silCtx.createImageData(sil.width, sil.height);
   mask = new Float32Array(seg.width * seg.height);
-  dmask = new Float32Array(mask.length); tmpMask = new Float32Array(mask.length);
+  dmask = new Float32Array(mask.length); tmpMask = new Float32Array(mask.length); tmp2 = new Float32Array(mask.length);
   const pk = PLATE_SIZE / Math.max(W, H);
   const pw = Math.max(16, Math.round(W * pk)), ph = Math.max(16, Math.round(H * pk));
-  for (const c of [frameC, learnC, plateC, fillC, outC]) { c.width = pw; c.height = ph; }
-  lv.forEach((c, i) => { const f = 4 * 2 ** i; c.width = Math.max(2, Math.round(pw / f)); c.height = Math.max(2, Math.round(ph / f)); });
+  for (const c of [frameC, learnC, plateC, fillC, outC, tmpC]) { c.width = pw; c.height = ph; }
+  floodC.width = Math.max(8, pw >> 1); floodC.height = Math.max(8, ph >> 1);
+  pyr = [];
+  for (let w = pw, h = ph; w > 3 && h > 3;) {
+    w = Math.max(2, w >> 1); h = Math.max(2, h >> 1);
+    pyr.push(mk(w, h));
+    if (w <= 4 || h <= 4) break;
+  }
   pivotX = W / 2; pivotY = H / 2;
   layoutGrid();
 }
@@ -216,12 +228,18 @@ function frame(now) {
     });
 
     // Máscara dilatada: cubre bien los bordes del cuerpo (cabello, manos)
-    dilate(mask, tmpMask, sw, sh); dilate(tmpMask, dmask, sw, sh);
+    // tmpMask: borde justo (para aprender todo el fondo que se pueda)
+    // dmask: borde amplio (para borrar el cuerpo sin dejar orillas)
+    dilate(mask, tmpMask, sw, sh);
+    dilate(tmpMask, tmp2, sw, sh);
+    dilate(tmp2, dmask, sw, sh);
     const d = silImg.data, e = eraseImg.data, l = learnImg.data;
     for (let i = 0, j = 3; i < mask.length; i++, j += 4) {
       d[j] = mask[i] * 215;                                  // silueta oscura
-      e[j] = Math.min(1, dmask[i] * 1.6) * 255;              // zona a borrar
-      l[j] = Math.max(0, 1 - dmask[i] * 3) * 255;            // zona de fondo limpio
+      // Borrado: opaco sobre el cuerpo y difuminado hacia afuera, para que no se note el borde
+      const u = Math.min(1, Math.max(0, (dmask[i] - 0.12) / 0.5));
+      e[j] = u * u * (3 - 2 * u) * 255;                      // zona a borrar (con orilla suave)
+      l[j] = Math.max(0, 1 - tmp2[i] * 3) * 255;        // zona de fondo limpio
     }
     c2(silBase).putImageData(silImg, 0, 0);
     c2(eraseC).putImageData(eraseImg, 0, 0);
@@ -388,36 +406,98 @@ function updatePlate(mirror) {
   l.globalCompositeOperation = "source-in";
   l.drawImage(frameC, 0, 0);
   l.globalCompositeOperation = "source-over";
-  // Mezcla lenta: el fondo se actualiza (luz, objetos) sin copiar al cuerpo
+  // El fondo se actualiza rápido: así, en cuanto te mueves, se ve el fondo real
+  // y no queda el rastro (fantasma) de donde estabas.
   const p = c2(plateC);
-  p.globalAlpha = 0.2;
+  p.globalAlpha = 0.45;
   p.drawImage(learnC, 0, 0);
   p.globalAlpha = 1;
-  // Relleno de huecos (zonas que siempre han estado tapadas por el cuerpo):
-  // en una versión pequeña se "esparcen" los colores vecinos hacia el hueco (jump flood)
-  const sm = lv[0], g = c2(sm), sw2 = sm.width, sh2 = sm.height;
-  g.globalCompositeOperation = "copy";
-  g.drawImage(plateC, 0, 0, sw2, sh2);
-  g.globalCompositeOperation = "destination-over";
-  for (let d = 1; d < Math.max(sw2, sh2); d *= 2) {
-    for (let a = 0; a < 8; a++) {
-      const ang = (a / 8) * Math.PI * 2;
-      g.drawImage(sm, Math.round(Math.cos(ang) * d), Math.round(Math.sin(ang) * d));
-    }
-  }
-  g.globalCompositeOperation = "source-over";
-  // Suavizado (abajo y arriba) para que el relleno no se vea rayado
-  const b1 = lv[1], gb = c2(b1);
-  gb.globalCompositeOperation = "copy";
-  gb.drawImage(sm, 0, 0, b1.width, b1.height);
-  g.globalCompositeOperation = "copy";
-  g.drawImage(b1, 0, 0, sw2, sh2);           // re-escalado en dos pasos = más suave
-  g.globalCompositeOperation = "source-over";
+  // Relleno de lo que nunca se ha visto (detrás del cuerpo): se promedia el fondo
+  // conocido en versiones cada vez más pequeñas y luego se devuelve al tamaño real.
+  // Da un degradado suave que continúa el fondo, sin rayas ni bordes falsos.
   const fl = c2(fillC);
   fl.globalCompositeOperation = "copy";
-  fl.drawImage(sm, 0, 0, pw, ph);
-  fl.globalCompositeOperation = "source-over";
   fl.drawImage(plateC, 0, 0);
+  fl.globalCompositeOperation = "source-over";
+  let prev = fillC;
+  for (const c of pyr) {
+    const g = c2(c);
+    g.globalCompositeOperation = "copy";
+    g.drawImage(prev, 0, 0, c.width, c.height);
+    g.globalCompositeOperation = "source-over";
+    // Al achicar, un hueco se mezcla con el fondo de alrededor y queda medio
+    // transparente. Aquí se vuelve opaco sin cambiarle el color, que es lo que
+    // permite que el relleno sea un degradado del fondo y no una mancha plana.
+    const t = c2(tmpC);
+    t.globalCompositeOperation = "copy";
+    t.drawImage(c, 0, 0);
+    t.globalCompositeOperation = "source-over";
+    for (let k = 0; k < 4; k++) g.drawImage(tmpC, 0, 0, c.width, c.height, 0, 0, c.width, c.height);
+    prev = c;
+  }
+  for (let i = pyr.length - 2; i >= 0; i--) {
+    const g = c2(pyr[i]);
+    g.globalCompositeOperation = "destination-over";
+    g.drawImage(pyr[i + 1], 0, 0, pyr[i].width, pyr[i].height);
+    g.globalCompositeOperation = "source-over";
+  }
+  fl.globalCompositeOperation = "destination-over";
+  fl.drawImage(pyr[0], 0, 0, pw, ph);
+  // Red de seguridad: si quedara algo transparente, se tapa con el color promedio
+  const g1 = c2r(oneC);
+  g1.globalCompositeOperation = "copy";
+  g1.drawImage(pyr[pyr.length - 1], 0, 0, 1, 1);
+  const [ar, ag, ab] = g1.getImageData(0, 0, 1, 1).data;
+  fl.fillStyle = `rgb(${ar},${ag},${ab})`;
+  fl.fillRect(0, 0, pw, ph);
+  fl.globalCompositeOperation = "source-over";
+
+  // Segundo relleno: cada hueco toma el color del fondo conocido más cercano.
+  // Mezclado con el anterior, el parche toma los tonos de su alrededor
+  // (la pared por arriba, los muebles por abajo) en vez de un gris parejo.
+  const fw = floodC.width, fh = floodC.height, gf = c2(floodC);
+  gf.globalCompositeOperation = "copy";
+  gf.drawImage(plateC, 0, 0, fw, fh);
+  gf.globalCompositeOperation = "destination-over";
+  for (let d = 1; d < Math.max(fw, fh); d *= 2) {
+    for (let a = 0; a < 12; a++) {
+      const ang = (a / 12) * Math.PI * 2;
+      gf.drawImage(floodC, Math.round(Math.cos(ang) * d), Math.round(Math.sin(ang) * d));
+    }
+  }
+  gf.globalCompositeOperation = "source-over";
+  // Se suaviza (achicar y volver a agrandar) para que no queden escalones
+  const bl = pyr[1] || pyr[0];
+  const gb = c2(bl);
+  gb.globalCompositeOperation = "copy";
+  gb.drawImage(floodC, 0, 0, bl.width, bl.height);
+  gb.globalCompositeOperation = "source-over";
+  gf.globalCompositeOperation = "copy";
+  gf.drawImage(bl, 0, 0, fw, fh);
+  gf.globalCompositeOperation = "source-over";
+  fl.globalAlpha = 0.5;
+  fl.drawImage(floodC, 0, 0, pw, ph);
+  fl.globalAlpha = 1;
+  fl.drawImage(plateC, 0, 0);                // el fondo que sí se vio vuelve nítido
+  fl.globalCompositeOperation = "source-over";
+  // Grano muy suave: el relleno toma la textura de una foto y deja de verse de plástico
+  fl.globalCompositeOperation = "overlay";
+  fl.globalAlpha = 0.18;
+  fl.fillStyle = noisePattern || (noisePattern = fl.createPattern(noiseC, "repeat"));
+  fl.fillRect(0, 0, pw, ph);
+  fl.globalAlpha = 1;
+  fl.globalCompositeOperation = "source-over";
+}
+
+// Grano fino, del tamaño de un píxel de cámara
+function buildNoise() {
+  const g = c2(noiseC), id = g.createImageData(noiseC.width, noiseC.height);
+  for (let i = 0, j = 0; i < noiseC.width * noiseC.height; i++, j += 4) {
+    const v = 128 + (Math.random() - 0.5) * 46;
+    id.data[j] = id.data[j + 1] = id.data[j + 2] = v;
+    id.data[j + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
 }
 
 // ---------- UI ----------
@@ -426,7 +506,7 @@ $("start").addEventListener("click", async () => {
   btn.disabled = true;
   try {
     status.textContent = "Cargando modelo de segmentación…";
-    buildAtlas(ui.palette.value); shuffle();
+    buildAtlas(ui.palette.value); shuffle(); buildNoise();
     await Promise.all([loadModel(), startCamera()]);
     $("intro").hidden = true; $("panel").hidden = false;
     // En teléfonos el panel arranca cerrado para no tapar la imagen
