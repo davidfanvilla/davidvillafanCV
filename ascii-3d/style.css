@@ -35,3 +35,4 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); o
 .panel__row { display: flex; flex-wrap: wrap; gap: 6px; }
 .panel__row .btn { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
 .fps { margin: 0; opacity: .6; text-align: right; }
+.tip { font-size: 13px; color: var(--accent); }
