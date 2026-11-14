@@ -31,6 +31,17 @@ const segCtx = seg.getContext("2d", { willReadFrequently: true });
 const sil = document.createElement("canvas");
 const silCtx = sil.getContext("2d");
 let silImg;
+// --- Borrado del cuerpo real ---
+// Se aprende una "placa" del fondo (solo con los píxeles donde no hay persona) y se
+// pinta encima del cuerpo al mismo ritmo en que se deshace el código.
+const mk = (w = 1, h = 1) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+const PLATE_SIZE = 480;                  // resolución de la placa del fondo (lado mayor)
+const silBase = mk(), eraseC = mk(), learnMaskC = mk(), cellKC = mk();
+const frameC = mk(), learnC = mk(), plateC = mk(), fillC = mk(), outC = mk();
+const lv = [mk(), mk()];                 // versiones pequeñas para rellenar huecos del fondo
+const c2 = (c) => c.getContext("2d");
+let eraseImg, learnImg, cellKImg, dmask = new Float32Array(0), tmpMask = new Float32Array(0);
+let kCell = new Float32Array(0);
 
 // ---------- Estado ----------
 let segmenter, stream, facing = "user";
@@ -42,12 +53,12 @@ let atlas, atlasCols = 0;
 let slots = new Uint8Array(SLOTS);       // índices a CHAR_POOL
 let lastShuffle = 0, lastVideoTime = -1;
 let pivotX = 0, pivotY = 0;
-let px = new Uint8ClampedArray(0);
+let px = new Uint8ClampedArray(0);       // píxeles del frame pequeño (brillo)
 // Desintegración: el código aparece, se sostiene y luego se deshace hasta desaparecer
 const HOLD_MS = 3000;                    // tiempo con el cuerpo completo antes de deshacerse
 const FADE_WIN = 0.18;                   // cuánto dura la caída de cada carácter (fracción)
 let dissolveStart = 0;                   // 0 = esperando detectar un cuerpo
-let rndA = new Float32Array(0), rndB = new Float32Array(0);       // píxeles del frame pequeño (brillo)
+let rndA = new Float32Array(0), rndB = new Float32Array(0);
 // Buffers reutilizables (sin asignaciones por frame)
 let bufX, bufY, bufS, bufBX, bufBY, bufBS, bufA, bufG;
 
@@ -102,9 +113,16 @@ function layout() {
   // Canvas de segmentación con el mismo aspecto que la pantalla
   if (W >= H) { seg.width = SEG_SIZE; seg.height = Math.max(32, Math.round(SEG_SIZE * H / W)); }
   else { seg.height = SEG_SIZE; seg.width = Math.max(32, Math.round(SEG_SIZE * W / H)); }
-  sil.width = seg.width; sil.height = seg.height;
+  for (const c of [sil, silBase, eraseC, learnMaskC]) { c.width = seg.width; c.height = seg.height; }
   silImg = silCtx.createImageData(sil.width, sil.height);
+  eraseImg = silCtx.createImageData(sil.width, sil.height);
+  learnImg = silCtx.createImageData(sil.width, sil.height);
   mask = new Float32Array(seg.width * seg.height);
+  dmask = new Float32Array(mask.length); tmpMask = new Float32Array(mask.length);
+  const pk = PLATE_SIZE / Math.max(W, H);
+  const pw = Math.max(16, Math.round(W * pk)), ph = Math.max(16, Math.round(H * pk));
+  for (const c of [frameC, learnC, plateC, fillC, outC]) { c.width = pw; c.height = ph; }
+  lv.forEach((c, i) => { const f = 4 * 2 ** i; c.width = Math.max(2, Math.round(pw / f)); c.height = Math.max(2, Math.round(ph / f)); });
   pivotX = W / 2; pivotY = H / 2;
   layoutGrid();
 }
@@ -124,6 +142,9 @@ function layoutGrid() {
   bufX = new Float32Array(n); bufY = new Float32Array(n); bufS = new Float32Array(n);
   bufBX = new Float32Array(n); bufBY = new Float32Array(n); bufBS = new Float32Array(n);
   bufA = new Float32Array(n); bufG = new Uint8Array(n);
+  kCell = new Float32Array(n);
+  cellKC.width = cols; cellKC.height = rows;
+  cellKImg = c2(cellKC).createImageData(cols, rows);
   // Umbral de desintegración por celda: ruido + de arriba hacia abajo (como ceniza)
   rndA = new Float32Array(n); rndB = new Float32Array(n);
   for (let gy = 0; gy < rows; gy++) for (let gx = 0; gx < cols; gx++) {
@@ -176,16 +197,6 @@ function frame(now) {
   const sw = seg.width, sh = seg.height;
   const prog = dissolveProgress(now);
   const finished = prog >= 1 + FADE_WIN;
-  if (finished) {
-    // Ya no queda código: solo el mundo real (sin segmentar, ahorra batería)
-    ctx.save();
-    if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
-    ctx.restore();
-    $("again").hidden = false;
-    ui.fps.textContent = "El código se deshizo";
-    return;
-  }
 
   // 1) Frame pequeño de la cámara (espejado si es la cámara frontal)
   const newFrame = video.currentTime !== lastVideoTime;
@@ -204,22 +215,59 @@ function frame(now) {
       for (let i = 0; i < data.length; i++) mask[i] = mask[i] * 0.35 + data[i] * 0.65;
     });
 
-    // Silueta oscura (resolución baja, se escala con suavizado = bordes suaves)
-    const d = silImg.data;
-    for (let i = 0, j = 3; i < mask.length; i++, j += 4) d[j] = mask[i] * 215;
-    silCtx.putImageData(silImg, 0, 0);
+    // Máscara dilatada: cubre bien los bordes del cuerpo (cabello, manos)
+    dilate(mask, tmpMask, sw, sh); dilate(tmpMask, dmask, sw, sh);
+    const d = silImg.data, e = eraseImg.data, l = learnImg.data;
+    for (let i = 0, j = 3; i < mask.length; i++, j += 4) {
+      d[j] = mask[i] * 215;                                  // silueta oscura
+      e[j] = Math.min(1, dmask[i] * 1.6) * 255;              // zona a borrar
+      l[j] = Math.max(0, 1 - dmask[i] * 3) * 255;            // zona de fondo limpio
+    }
+    c2(silBase).putImageData(silImg, 0, 0);
+    c2(eraseC).putImageData(eraseImg, 0, 0);
+    c2(learnMaskC).putImageData(learnImg, 0, 0);
     px = segCtx.getImageData(0, 0, sw, sh).data;
+    updatePlate(mirror);
   }
   if (px.length !== sw * sh * 4) return;
+
+  // Progreso de desintegración por celda (0 intacto → 1 desaparecido)
+  const ka = cellKImg.data;
+  for (let i = 0, j = 3; i < kCell.length; i++, j += 4) {
+    const k = prog <= rndA[i] ? 0 : Math.min(1, (prog - rndA[i]) / FADE_WIN);
+    kCell[i] = k; ka[j] = k * 255;
+  }
+  c2(cellKC).putImageData(cellKImg, 0, 0);
 
   // 3) Mundo real de fondo (video a resolución completa)
   ctx.save();
   if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
   ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
   ctx.restore();
-  // La silueta oscura se aclara conforme el código se deshace
-  const silAlpha = Math.max(0, 1 - (prog / (1 + FADE_WIN)) ** 2);
-  if (silAlpha > 0) { ctx.globalAlpha = silAlpha; ctx.drawImage(sil, 0, 0, W, H); ctx.globalAlpha = 1; }
+  // Escala para dibujar la rejilla de celdas sobre otro canvas (la rejilla puede exceder la pantalla)
+  const gwk = (cols * cell) / W, ghk = (rows * cell) / H;
+  if (prog > 0) {
+    // Tu cuerpo real se deshace: el fondo aprendido lo reemplaza celda por celda
+    const o = c2(outC), ow = outC.width, oh = outC.height;
+    o.globalCompositeOperation = "copy";
+    o.drawImage(eraseC, 0, 0, ow, oh);
+    o.globalCompositeOperation = "destination-in";
+    o.drawImage(cellKC, 0, 0, ow * gwk, oh * ghk);
+    o.globalCompositeOperation = "source-in";
+    o.drawImage(fillC, 0, 0);
+    o.globalCompositeOperation = "source-over";
+    ctx.drawImage(outC, 0, 0, W, H);
+  }
+  // La silueta oscura desaparece junto con cada carácter
+  const sc = silCtx;
+  sc.globalCompositeOperation = "copy";
+  sc.drawImage(silBase, 0, 0);
+  if (prog > 0) {
+    sc.globalCompositeOperation = "destination-out";
+    sc.drawImage(cellKC, 0, 0, sil.width * gwk, sil.height * ghk);
+  }
+  sc.globalCompositeOperation = "source-over";
+  if (!finished) ctx.drawImage(sil, 0, 0, W, H);
 
   // 4) Cambiar caracteres periódicamente (como el sketch original)
   if (now - lastShuffle > SHUFFLE_MS) { shuffle(); lastShuffle = now; }
@@ -244,7 +292,7 @@ function frame(now) {
       const conf = mask[mi];
       if (conf < 0.5) continue;
       // Desintegración: k = 0 intacto, 1 desaparecido
-      const k = prog <= rndA[ci] ? 0 : (prog - rndA[ci]) / FADE_WIN;
+      const k = kCell[ci];
       if (k >= 1) continue;
       const p = mi * 4;
       const lum = (px[p] * 0.299 + px[p + 1] * 0.587 + px[p + 2] * 0.114) / 255;
@@ -300,8 +348,76 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
+  if (finished) $("again").hidden = false;
   fpsFrames++;
-  if (now - fpsT > 500) { ui.fps.textContent = `${Math.round(fpsFrames * 1000 / (now - fpsT))} fps · ${count} caracteres`; fpsFrames = 0; fpsT = now; }
+  if (now - fpsT > 500) {
+    const fps = Math.round(fpsFrames * 1000 / (now - fpsT));
+    ui.fps.textContent = finished ? `${fps} fps · el código y tu cuerpo se deshicieron` : `${fps} fps · ${count} caracteres`;
+    fpsFrames = 0; fpsT = now;
+  }
+}
+
+// Dilatación 3x3 (máximo) de la máscara
+function dilate(src, dst, w, h) {
+  for (let y = 0; y < h; y++) {
+    const y0 = y > 0 ? y - 1 : 0, y1 = y < h - 1 ? y + 1 : y;
+    for (let x = 0; x < w; x++) {
+      const x0 = x > 0 ? x - 1 : 0, x1 = x < w - 1 ? x + 1 : x;
+      let m = 0;
+      for (let yy = y0; yy <= y1; yy++) {
+        const r = yy * w;
+        for (let xx = x0; xx <= x1; xx++) { const v = src[r + xx]; if (v > m) m = v; }
+      }
+      dst[y * w + x] = m;
+    }
+  }
+}
+
+// Aprende el fondo (todo en GPU con composición de canvas) y rellena lo que nunca se ha visto
+function updatePlate(mirror) {
+  const pw = frameC.width, ph = frameC.height;
+  const f = c2(frameC);
+  f.save();
+  if (mirror) { f.translate(pw, 0); f.scale(-1, 1); }
+  f.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, pw, ph);
+  f.restore();
+  // Solo los píxeles donde NO hay persona
+  const l = c2(learnC);
+  l.globalCompositeOperation = "copy";
+  l.drawImage(learnMaskC, 0, 0, pw, ph);
+  l.globalCompositeOperation = "source-in";
+  l.drawImage(frameC, 0, 0);
+  l.globalCompositeOperation = "source-over";
+  // Mezcla lenta: el fondo se actualiza (luz, objetos) sin copiar al cuerpo
+  const p = c2(plateC);
+  p.globalAlpha = 0.2;
+  p.drawImage(learnC, 0, 0);
+  p.globalAlpha = 1;
+  // Relleno de huecos (zonas que siempre han estado tapadas por el cuerpo):
+  // en una versión pequeña se "esparcen" los colores vecinos hacia el hueco (jump flood)
+  const sm = lv[0], g = c2(sm), sw2 = sm.width, sh2 = sm.height;
+  g.globalCompositeOperation = "copy";
+  g.drawImage(plateC, 0, 0, sw2, sh2);
+  g.globalCompositeOperation = "destination-over";
+  for (let d = 1; d < Math.max(sw2, sh2); d *= 2) {
+    for (let a = 0; a < 8; a++) {
+      const ang = (a / 8) * Math.PI * 2;
+      g.drawImage(sm, Math.round(Math.cos(ang) * d), Math.round(Math.sin(ang) * d));
+    }
+  }
+  g.globalCompositeOperation = "source-over";
+  // Suavizado (abajo y arriba) para que el relleno no se vea rayado
+  const b1 = lv[1], gb = c2(b1);
+  gb.globalCompositeOperation = "copy";
+  gb.drawImage(sm, 0, 0, b1.width, b1.height);
+  g.globalCompositeOperation = "copy";
+  g.drawImage(b1, 0, 0, sw2, sh2);           // re-escalado en dos pasos = más suave
+  g.globalCompositeOperation = "source-over";
+  const fl = c2(fillC);
+  fl.globalCompositeOperation = "copy";
+  fl.drawImage(sm, 0, 0, pw, ph);
+  fl.globalCompositeOperation = "source-over";
+  fl.drawImage(plateC, 0, 0);
 }
 
 // ---------- UI ----------
@@ -313,6 +429,8 @@ $("start").addEventListener("click", async () => {
     buildAtlas(ui.palette.value); shuffle();
     await Promise.all([loadModel(), startCamera()]);
     $("intro").hidden = true; $("panel").hidden = false;
+    // En teléfonos el panel arranca cerrado para no tapar la imagen
+    if (window.matchMedia("(max-width: 760px), (pointer: coarse)").matches) $("panel").classList.add("collapsed");
     requestAnimationFrame(frame);
   } catch (e) {
     console.error(e);
@@ -332,6 +450,59 @@ $("full").addEventListener("click", () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen?.();
 });
+// --- Grabación de video (del mismo canvas que ves, sin volver a procesar nada) ---
+let recorder, recChunks = [], recStart = 0, recTimer;
+function pickMime() {
+  const opts = ["video/mp4;codecs=avc1", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  return opts.find((m) => window.MediaRecorder?.isTypeSupported(m)) || "";
+}
+function stopRec() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+$("rec").addEventListener("click", () => {
+  const btn = $("rec");
+  if (recorder && recorder.state === "recording") { stopRec(); return; }
+  if (!window.MediaRecorder || !stage.captureStream) {
+    ui.fps.textContent = "Tu navegador no puede grabar video";
+    return;
+  }
+  const mime = pickMime();
+  try {
+    recorder = new MediaRecorder(stage.captureStream(30), mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined);
+  } catch (e) {
+    console.error(e);
+    ui.fps.textContent = "No se pudo iniciar la grabación";
+    return;
+  }
+  recChunks = [];
+  recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+  recorder.onstop = () => {
+    clearInterval(recTimer);
+    btn.textContent = "● Grabar";
+    btn.classList.remove("recording");
+    $("recDot").hidden = true;
+    const type = recorder.mimeType || mime || "video/webm";
+    const blob = new Blob(recChunks, { type });
+    recChunks = [];
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.download = "cuerpo-ascii-3d." + (type.includes("mp4") ? "mp4" : "webm");
+    a.href = url;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+  recorder.start(1000);
+  recStart = performance.now();
+  btn.textContent = "■ Detener";
+  btn.classList.add("recording");
+  $("recDot").hidden = false;
+  recTimer = setInterval(() => {
+    const sec = Math.floor((performance.now() - recStart) / 1000);
+    $("recTime").textContent = `${(sec / 60) | 0}:${String(sec % 60).padStart(2, "0")}`;
+  }, 250);
+});
+window.addEventListener("pagehide", stopRec);
+
 $("shot").addEventListener("click", () => {
   const a = document.createElement("a");
   a.download = "cuerpo-ascii-3d.png";
@@ -339,4 +510,8 @@ $("shot").addEventListener("click", () => {
   a.click();
 });
 let resizeT;
-window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => video.videoWidth && layout(), 120); });
+window.addEventListener("resize", () => {
+  if (recorder && recorder.state === "recording") return; // redimensionar cortaría la grabación
+  clearTimeout(resizeT);
+  resizeT = setTimeout(() => video.videoWidth && layout(), 120);
+});

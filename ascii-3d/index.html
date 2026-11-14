@@ -18,10 +18,13 @@
     <div class="intro__card">
       <h1>CUERPO<span>ASCII</span>3D</h1>
       <p>Tu cuerpo se convierte en código en tiempo real. Lo demás se queda como el mundo real.</p>
+      <p class="tip">Tip: muévete un poco (o sal del cuadro un momento) al inicio, así la cámara aprende el fondo y tu cuerpo desaparece por completo.</p>
       <button id="start" class="btn btn--big">Activar cámara</button>
       <p id="status" class="status">Todo se procesa en tu dispositivo. Nada se sube a internet.</p>
     </div>
   </section>
+
+  <div id="recDot" class="rec-dot" hidden>● REC <span id="recTime">0:00</span></div>
 
   <aside id="panel" class="panel" hidden>
     <button id="togglePanel" class="panel__toggle" aria-label="Mostrar/ocultar controles">⚙</button>
@@ -42,6 +45,7 @@
       <div class="panel__row">
         <button id="flip" class="btn">Cambiar cámara</button>
         <button id="shot" class="btn">Foto</button>
+        <button id="rec" class="btn">● Grabar</button>
         <button id="full" class="btn">Pantalla completa</button>
       </div>
       <p id="fps" class="fps">-- fps</p>

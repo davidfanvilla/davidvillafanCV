@@ -35,3 +35,58 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); o
 .panel__row { display: flex; flex-wrap: wrap; gap: 6px; }
 .panel__row .btn { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
 .fps { margin: 0; opacity: .6; text-align: right; }
+.tip { font-size: 13px; color: var(--accent); }
+.rec-dot { position: fixed; top: 14px; left: 14px; z-index: 4; padding: 6px 12px; border-radius: 999px;
+  background: rgba(0, 0, 0, .6); border: 1px solid #ff3b3b; color: #ff6b6b; font-size: 13px;
+  letter-spacing: .08em; animation: recPulse 1.2s infinite; }
+.rec-dot[hidden] { display: none; }
+@keyframes recPulse { 50% { opacity: .35; } }
+.btn.recording { border-color: #ff3b3b; color: #ff6b6b; background: rgba(255, 59, 59, .15); }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+
+/* --- Teléfonos (iPhone incluido): panel compacto que no tapa la pantalla --- */
+@media (max-width: 760px), (pointer: coarse) {
+  .panel {
+    top: auto;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    display: flex;
+    flex-direction: column-reverse;  /* los controles se abren hacia arriba */
+    align-items: flex-end;
+    gap: 8px;
+    max-width: none;
+  }
+  .panel__toggle { float: none; width: 46px; height: 46px; font-size: 22px; }
+  .panel__body {
+    margin-top: 0;
+    width: 100%;
+    max-height: 34vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px;
+    gap: 8px;
+    font-size: 12px;
+    grid-template-columns: 1fr 1fr;  /* dos columnas: ocupa menos alto */
+  }
+  .panel__body > .panel__row, .panel__body > .fps, .panel__body > #again { grid-column: 1 / -1; }
+  .panel__row { gap: 5px; }
+  .panel input[type=range] { height: 28px; }
+  .panel__row .btn { flex: 1 1 45%; padding: 10px 6px; }
+  .rec-dot { top: max(10px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); }
+}
+
+/* Pantallas muy bajas (iPhone en horizontal) */
+@media (max-height: 460px) and (pointer: coarse) {
+  .panel { left: auto; }                 /* a un lado, no de lado a lado */
+  .panel__body { width: 320px; max-height: 68vh; grid-template-columns: 1fr 1fr; }
+}
+
+/* La pantalla de inicio siempre debe poder verse y hacerse scroll (iPhone en horizontal) */
+.intro { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+@media (max-height: 520px) {
+  .intro { align-items: start; }
+  .intro h1 { font-size: clamp(24px, 6vh, 36px); margin-bottom: 8px; }
+  .intro p { font-size: 13px; margin: 6px 0; }
+  .btn--big { font-size: 16px; padding: 10px 22px; margin: 8px 0; }
+}
