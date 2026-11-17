@@ -32,7 +32,7 @@ renderer.setClearColor(BG);
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x070616, 0.016);
+scene.fog = new THREE.FogExp2(0x05060f, 0.022);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
 const CAM_BASE = new THREE.Vector3(0, 6, 24);
@@ -72,8 +72,8 @@ function fresnelMaterial(colorA, colorB, intensity = 1.2) {
       #include <fog_pars_fragment>
       void main() {
         float f = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.2);
-        vec3 col = mix(uColorA, uColorB, f) * (0.03 + f * uIntensity * 0.6);
-        gl_FragColor = vec4(col, 0.1 + f * 0.6);
+        vec3 col = mix(uColorA, uColorB, f) * (0.015 + f * uIntensity * 0.35);
+        gl_FragColor = vec4(col, 0.06 + f * 0.4);
         #include <fog_fragment>
       }`,
     transparent: true,
@@ -118,7 +118,7 @@ const terrainMat = new THREE.ShaderMaterial({
     uAmp: { value: 14 },
     uCyan: { value: CYAN },
     uMagenta: { value: MAGENTA },
-    uFog: { value: 0.016 },
+    uFog: { value: 0.02 },
     uPulse: { value: 0 },
   },
   vertexShader: /* glsl */ `
@@ -148,7 +148,7 @@ const terrainMat = new THREE.ShaderMaterial({
     void main() {
       vec3 col = mix(uMagenta, uCyan, smoothstep(0.0, 0.8, vH));
       float fog = exp(-pow(uFog * vDepth, 2.0));
-      float a = fog * (0.16 + vH * 0.45 + uPulse * 0.25);
+      float a = fog * (0.07 + vH * 0.26 + uPulse * 0.15);
       gl_FragColor = vec4(col * a, a);
     }`,
   wireframe: true,
@@ -182,7 +182,7 @@ const sunMat = new THREE.ShaderMaterial({
       float bands = step(0.5, fract((p.y - uTime * 0.05) * 9.0));
       float cut = p.y < 0.15 ? mix(1.0, bands, smoothstep(0.15, -0.2, p.y) * 0.9 + 0.1) : 1.0;
       float glow = smoothstep(1.0, 0.85, r);
-      gl_FragColor = vec4(col * cut * glow * (0.32 + uPulse * 0.25), 1.0);
+      gl_FragColor = vec4(col * cut * glow * (0.18 + uPulse * 0.15), 1.0);
     }`,
   transparent: true,
   blending: THREE.AdditiveBlending,
@@ -203,19 +203,19 @@ core.add(crystal);
 
 const crystalEdges = new THREE.LineSegments(
   new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(3.45, 1)),
-  edgeMaterial(CYAN, 0.85)
+  edgeMaterial(CYAN, 0.5)
 );
 core.add(crystalEdges);
 
 const shellEdges = new THREE.LineSegments(
   new THREE.EdgesGeometry(new THREE.DodecahedronGeometry(5.2, 0)),
-  edgeMaterial(MAGENTA, 0.55)
+  edgeMaterial(MAGENTA, 0.35)
 );
 core.add(shellEdges);
 
 const heart = new THREE.Mesh(
   new THREE.OctahedronGeometry(0.9, 0),
-  new THREE.MeshBasicMaterial({ color: new THREE.Color("#9ff3ff") })
+  new THREE.MeshBasicMaterial({ color: new THREE.Color("#4fb8d0") })
 );
 core.add(heart);
 
@@ -230,11 +230,11 @@ const rings = [];
   pivot.rotation.set(...cfg.tilt);
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(cfg.r, 0.045, 8, 220),
-    new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false })
   );
   pivot.add(ring);
   // Pequeño "satélite" sobre cada anillo
-  const sat = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  const sat = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshBasicMaterial({ color: 0x9fdcff }));
   sat.position.x = cfg.r;
   ring.add(sat);
   core.add(pivot);
@@ -245,7 +245,7 @@ const rings = [];
 const SWARM = MOBILE ? 60 : 120;
 const swarm = new THREE.InstancedMesh(
   new THREE.OctahedronGeometry(0.16, 0),
-  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
   SWARM
 );
 const swarmData = [];
@@ -277,7 +277,7 @@ for (let i = 0; i < FLOATERS; i++) {
   const palette = [[CYAN, MAGENTA], [MAGENTA, VIOLET], [VIOLET, CYAN]][i % 3];
   const g = new THREE.Group();
   g.add(new THREE.Mesh(geo, fresnelMaterial(palette[0], palette[1], 1.3)));
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 20), edgeMaterial(palette[1], 0.7)));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 20), edgeMaterial(palette[1], 0.4)));
 
   // Repartir a los lados del núcleo, a distintas profundidades
   const side = i % 2 === 0 ? -1 : 1;
@@ -315,7 +315,7 @@ starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
 starGeo.setAttribute("color", new THREE.BufferAttribute(starCol, 3));
 const stars = new THREE.Points(
   starGeo,
-  new THREE.PointsMaterial({ size: 0.45, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+  new THREE.PointsMaterial({ size: 0.45, vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
 );
 scene.add(stars);
 
@@ -324,9 +324,9 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2),
-  0.6,  // intensidad
-  0.5,  // radio
-  0.18  // umbral
+  0.38, // intensidad
+  0.45, // radio
+  0.3   // umbral
 );
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -402,7 +402,7 @@ function render(t, dt) {
   crystal.scale.setScalar(beatScale);
   crystalEdges.scale.setScalar(beatScale);
   shellEdges.rotation.set(-t * 0.1, t * 0.12, t * 0.05);
-  shellEdges.material.opacity = 0.45 + beatFlash * 0.5;
+  shellEdges.material.opacity = 0.3 + beatFlash * 0.4;
   heart.rotation.set(t, t * 1.3, 0);
   heart.scale.setScalar(1 + m.pulse * 0.4);
   core.position.y = 7 + Math.sin(t * 0.8) * 0.4;
@@ -428,7 +428,7 @@ function render(t, dt) {
   }
 
   stars.rotation.y = t * 0.005;
-  bloom.strength = 0.6 + m.pulse * 0.45 + m.level * 0.3;
+  bloom.strength = 0.38 + m.pulse * 0.3 + m.level * 0.2;
 
   composer.render();
 }

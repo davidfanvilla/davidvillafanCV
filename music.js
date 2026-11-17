@@ -14,6 +14,7 @@
   const STEP = 60 / BPM / 4;      // duración de una semicorchea (s)
   const STEPS_PER_BAR = 16;
   const LOOKAHEAD = 0.15;         // cuánto adelantamos la programación (s)
+  const VOLUME = 2.2;             // volumen general (el compresor evita la distorsión)
 
   // Progresión en La menor: 4 acordes, 2 compases cada uno (8 compases)
   // root = bajo (MIDI), tones = notas del acorde
@@ -71,8 +72,11 @@
     master.gain.value = 0;
 
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -18;
-    comp.ratio.value = 4;
+    comp.threshold.value = -14;
+    comp.knee.value = 6;
+    comp.ratio.value = 8;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.2;
 
     analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
@@ -211,7 +215,19 @@
   }
 
   /* ---------- Control ---------- */
+
+  // En iPhone, el interruptor de silencio apaga el audio de Web Audio.
+  // Pedir sesión de "reproducción" (iOS 17+) y reproducir un audio mudo
+  // en bucle hace que suene como música normal aunque esté en silencio.
+  const unlockEl = new Audio("audio/silencio.wav");
+  unlockEl.loop = true;
+  unlockEl.setAttribute("playsinline", "");
+
   async function start() {
+    if (navigator.audioSession) {
+      try { navigator.audioSession.type = "playback"; } catch (e) { /* no soportado */ }
+    }
+    unlockEl.play().catch(() => {}); // debe llamarse dentro del clic/toque
     if (!ctx) build();
     await ctx.resume();
     playing = true;
@@ -220,7 +236,7 @@
     timer = setInterval(scheduler, 25);
     master.gain.cancelScheduledValues(ctx.currentTime);
     master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 1.5);
+    master.gain.linearRampToValueAtTime(VOLUME, ctx.currentTime + 1.5);
   }
 
   function stop() {
@@ -234,6 +250,7 @@
       if (!playing) {
         clearInterval(timer);
         ctx.suspend();
+        unlockEl.pause();
       }
     }, 900);
   }
@@ -276,11 +293,28 @@
     button.querySelector(".sound-toggle__label").textContent = playing ? "Música ON" : "Música OFF";
   }
 
+  let userTurnedOff = false;
+
   button.addEventListener("click", async () => {
-    if (playing) stop();
-    else await start();
+    if (playing) {
+      userTurnedOff = true;
+      stop();
+    } else {
+      await start();
+    }
     render();
   });
+
+  // La música arranca con el primer clic o toque en cualquier parte de la
+  // página (los navegadores no permiten que suene sola al abrirla).
+  // Si la persona la apaga con el botón, ya no vuelve a arrancar sola.
+  const FIRST_GESTURES = ["mousedown", "touchend", "keydown"];
+  function onFirstGesture(e) {
+    if (button.contains(e.target)) return; // el botón ya lo maneja
+    FIRST_GESTURES.forEach((t) => document.removeEventListener(t, onFirstGesture, true));
+    if (!playing && !userTurnedOff) start().then(render);
+  }
+  FIRST_GESTURES.forEach((t) => document.addEventListener(t, onFirstGesture, true));
 
   // Pausa cuando la pestaña no está visible y reanuda al volver
   let resumeOnReturn = false;
