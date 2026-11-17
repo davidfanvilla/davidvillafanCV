@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-+B8FaTWZlzCzsqRhNZjwB4SCo9K0p8CwLrAb2os+/Tk='; connect-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;">
   <title>David Villafán Sánchez · CV</title>
-  <meta name="description" content="CV de David Villafán Sánchez: operaciones aéreas, arte generativo con p5.js y desarrollo web.">
+  <meta name="description" content="CV de David Villafán Sánchez: operaciones aéreas, arte generativo y desarrollo web.">
   <meta name="theme-color" content="#05060f">
 
   <!-- Vista previa al compartir el enlace (WhatsApp, redes, etc.) -->
@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Fondo generativo (p5.js) -->
+  <!-- Fondo 3D generativo (Three.js) -->
   <div id="canvas-container" aria-hidden="true"></div>
   <div class="scanlines" aria-hidden="true"></div>
 
@@ -109,8 +109,15 @@
     <span class="sound-toggle__label">Música OFF</span>
   </button>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <!-- Fondo 3D con Three.js (el hash de este bloque está en la CSP de arriba) -->
+  <script type="importmap">{
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }</script>
   <script src="music.js"></script>
   <script src="script.js"></script>
+  <script type="module" src="bg3d.js"></script>
 </body>
 </html>
