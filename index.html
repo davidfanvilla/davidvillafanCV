@@ -84,7 +84,7 @@
       </dl>
     </section>
 
-    <p class="footnote reveal">Fondo generado en tiempo real con p5.js · mueve el cursor o toca la pantalla</p>
+    <p class="footnote reveal">Fondo y música 8 bits generados en tiempo real · mueve el cursor o toca la pantalla</p>
   </main>
 
   <!-- Barra de contacto: siempre visible -->
@@ -103,7 +103,14 @@
     </a>
   </nav>
 
+  <!-- Botón de música 8 bits (los navegadores solo permiten sonido tras un clic) -->
+  <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false" aria-label="Reproducir música">
+    <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <span class="sound-toggle__label">Música OFF</span>
+  </button>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <script src="music.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

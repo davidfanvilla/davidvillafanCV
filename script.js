@@ -48,6 +48,12 @@ let camShift = 0;
 let lastScrollY = 0;
 let scrollBoost = 0;
 
+// Reacción a la música 8 bits (music.js)
+let musicLevel = 0;
+let musicPulse = 0;
+let musicBeats = 0;
+let newBeat = false;
+
 const FIELD = { depthNear: 250, depthFar: 1600, center: 900 };
 
 function setup() {
@@ -115,8 +121,15 @@ function draw() {
   const targetShift = pointer.active ? (pointer.x / width - 0.5) : 0;
   camShift = lerp(camShift, targetShift, 0.04);
 
+  // Leer el nivel y el pulso de la música (0 si está apagada)
+  const m = window.cvMusic ? window.cvMusic.read() : { level: 0, pulse: 0, beats: 0 };
+  musicLevel = lerp(musicLevel, m.level, 0.2);
+  musicPulse = m.pulse;
+  newBeat = m.beats > musicBeats;
+  musicBeats = m.beats;
+
   angle = t * 0.04 + sy * 0.0004 + camShift * 0.35;
-  gridOffset += 1.2 + scrollBoost * 0.25;
+  gridOffset += 1.2 + scrollBoost * 0.25 + musicLevel * 2;
 
   drawSky();
   drawPortal(t);
@@ -142,7 +155,7 @@ function drawSky() {
 function drawPortal(t) {
   const cx = width / 2 + camShift * -40;
   const cy = horizonY;
-  const R = Math.min(width, height) * 0.32;
+  const R = Math.min(width, height) * 0.32 * (1 + musicPulse * 0.035);
 
   push();
   // Recortar todo lo que esté debajo del horizonte
@@ -154,8 +167,8 @@ function drawPortal(t) {
   // Relleno del "sol" con degradado
   const ctx = drawingContext;
   const g = ctx.createLinearGradient(0, cy - R, 0, cy);
-  g.addColorStop(0, "rgba(34,230,255,0.18)");
-  g.addColorStop(1, "rgba(255,43,214,0.35)");
+  g.addColorStop(0, `rgba(34,230,255,${0.18 + musicPulse * 0.12})`);
+  g.addColorStop(1, `rgba(255,43,214,${0.35 + musicPulse * 0.25})`);
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(cx, cy, R * 0.8, 0, TWO_PI);
@@ -180,7 +193,7 @@ function drawPortal(t) {
     { r: 1.32, w: 1, speed: -0.05, segs: 60, gap: 0.06, col: CYAN, a: 70 },
   ];
   for (const ring of rings) {
-    stroke(ring.col[0], ring.col[1], ring.col[2], ring.a);
+    stroke(ring.col[0], ring.col[1], ring.col[2], Math.min(255, ring.a * (1 + musicLevel * 1.5)));
     strokeWeight(ring.w);
     const step = TWO_PI / ring.segs;
     const rot = t * ring.speed;
@@ -216,6 +229,15 @@ function drawHorizonGlow() {
   g.addColorStop(1, "rgba(34,230,255,0)");
   ctx.fillStyle = g;
   ctx.fillRect(0, horizonY - 60, width, 100);
+
+  // Destello del horizonte con cada tiempo de la música
+  if (musicPulse > 0.01) {
+    const p = ctx.createLinearGradient(0, horizonY - 140, 0, horizonY);
+    p.addColorStop(0, "rgba(255,43,214,0)");
+    p.addColorStop(1, `rgba(255,43,214,${musicPulse * 0.22})`);
+    ctx.fillStyle = p;
+    ctx.fillRect(0, horizonY - 140, width, 140);
+  }
 }
 
 /* ---------- Piso con rejilla en perspectiva ---------- */
@@ -256,6 +278,10 @@ function drawGrid(t) {
   }
 
   // Pulsos de luz que viajan por la rejilla
+  // Con música: un pulso de luz en cada tiempo
+  if (newBeat && pulses.length < 14) {
+    pulses.push({ i: Math.floor(random(-10, 11)), z: zFar, speed: random(30, 50) });
+  }
   if (!REDUCED_MOTION && random() < 0.05 && pulses.length < 10) {
     pulses.push({ i: Math.floor(random(-10, 11)), z: zFar, speed: random(18, 40) });
   }
@@ -330,7 +356,7 @@ function drawParticles(t) {
           lerp(CYAN[0], VIOLET[0], mix),
           lerp(CYAN[1], VIOLET[1], mix),
           lerp(CYAN[2], VIOLET[2], mix),
-          k * 90 * Math.min(1, (a.s + b.s))
+          k * 90 * Math.min(1, (a.s + b.s)) * (1 + musicLevel)
         );
         line(a.sx, a.sy, b.sx, b.sy);
       }
@@ -359,7 +385,7 @@ function drawParticles(t) {
   noStroke();
   for (const p of particles) {
     if (p.sx < -40 || p.sx > width + 40 || p.sy < -40 || p.sy > height + 40) continue;
-    const size = constrain(p.s * 6, 1, 9);
+    const size = constrain(p.s * 6, 1, 9) * (1 + musicPulse * 0.6);
     const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + p.phase);
     const c = [
       lerp(CYAN[0], VIOLET[0], p.hue),
