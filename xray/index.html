@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Rayos X · David Villafán</title>
+  <meta name="description" content="Escáner corporal en tiempo real: seguimiento de pose, rostro pixelado y tu cuerpo en rayos X, directo desde tu cámara.">
+  <meta name="theme-color" content="#000000">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="video" playsinline muted autoplay></video>
+
+  <main id="stage" class="stage">
+    <canvas id="top"></canvas>
+    <canvas id="bot"></canvas>
+  </main>
+
+  <section id="intro" class="intro">
+    <div class="intro__card">
+      <p class="intro__tag">[ ENTITY SCAN · v1.0 ]</p>
+      <h1>RAYOS<span>X</span></h1>
+      <p>Arriba: lo que ve la cámara, con detección de rostro y pose. Abajo: tu cuerpo se vuelve transparente y aparece tu esqueleto.</p>
+      <p class="tip">Párate a 1–2 metros, con hombros y cabeza dentro del cuadro. Mientras más cuerpo se vea, más huesos aparecen.</p>
+      <button id="start" class="btn btn--big">Activar cámara</button>
+      <p id="status" class="status">Todo se procesa en tu dispositivo. Nada se sube a internet.</p>
+    </div>
+  </section>
+
+  <button id="gear" class="gear" aria-label="Mostrar/ocultar controles" hidden>⚙</button>
+
+  <aside id="panel" class="panel" hidden>
+    <div class="panel__body">
+      <h2>Efectos · arriba</h2>
+      <div class="chips" id="chips">
+        <button class="chip" data-fx="auto">AUTO</button>
+        <button class="chip" data-fx="blur">Blur rostro</button>
+        <button class="chip" data-fx="points">Puntos</button>
+        <button class="chip" data-fx="boxes">Cajas</button>
+        <button class="chip" data-fx="glitch">Glitch RGB</button>
+        <button class="chip" data-fx="scan">Escáner</button>
+        <button class="chip" data-fx="cmap">Mapa de color</button>
+        <button class="chip" data-fx="edges">Contorno</button>
+        <button class="chip" data-fx="base">Video base</button>
+      </div>
+
+      <h2>Rayos X · abajo</h2>
+      <div class="chips">
+        <button class="chip" data-fx="organs">Órganos</button>
+        <button class="chip" data-fx="bones">Huesos</button>
+      </div>
+      <label>Paleta
+        <select id="palette">
+          <option value="xray">Rayos X azul</option>
+          <option value="medico">Verde médico</option>
+          <option value="ambar">Ámbar</option>
+          <option value="termico">Térmico</option>
+          <option value="mono">Blanco y negro</option>
+        </select>
+      </label>
+      <label>Transparencia del cuerpo <input id="tissue" type="range" min="10" max="100" value="42"></label>
+      <label>Brillo de huesos <input id="bone" type="range" min="30" max="100" value="85"></label>
+      <label>Tamaño del pixel (blur) <input id="pix" type="range" min="6" max="26" value="11"></label>
+
+      <div class="panel__row">
+        <button id="flip" class="btn">Cambiar cámara</button>
+        <button id="shot" class="btn">Foto</button>
+        <button id="full" class="btn">Pantalla completa</button>
+      </div>
+      <p id="fps" class="fps">-- fps</p>
+    </div>
+  </aside>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
