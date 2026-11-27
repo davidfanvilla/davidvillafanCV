@@ -2,6 +2,7 @@
 // Arriba: cámara + HUD + rostro pixelado + puntos de pose + efectos.
 // Abajo: tu cuerpo "transparente" (rayos X) con esqueleto dibujado sobre tu pose real.
 // Todo corre en tu dispositivo con MediaPipe (PoseLandmarker + máscara de segmentación).
+import { drawAnatomy } from "./anatomy.js";
 import { FilesetResolver, PoseLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const WASM_URL = window.__WASM_URL || "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
@@ -30,11 +31,12 @@ function makeLut(stops) {
   return l;
 }
 const PALS = {
-  xray:    { stops: [[0, [0, 0, 0]], [.22, [3, 20, 60]], [.5, [26, 92, 196]], [.78, [118, 208, 255]], [1, [255, 255, 255]]], bone: [233, 248, 255], glow: [67, 184, 255] },
-  medico:  { stops: [[0, [0, 0, 0]], [.25, [0, 34, 18]], [.55, [10, 140, 70]], [.8, [120, 255, 170]], [1, [255, 255, 255]]], bone: [232, 255, 240], glow: [61, 255, 122] },
-  ambar:   { stops: [[0, [0, 0, 0]], [.25, [40, 18, 0]], [.55, [190, 95, 10]], [.8, [255, 190, 80]], [1, [255, 250, 220]]], bone: [255, 243, 214], glow: [255, 166, 61] },
-  termico: { stops: [[0, [0, 0, 0]], [.2, [80, 0, 10]], [.45, [230, 40, 0]], [.7, [255, 170, 0]], [1, [255, 255, 220]]], bone: [255, 255, 255], glow: [255, 90, 0] },
-  mono:    { stops: [[0, [0, 0, 0]], [.5, [110, 110, 115]], [1, [255, 255, 255]]], bone: [255, 255, 255], glow: [180, 190, 200] },
+  xray:    { stops: [[0, [0, 0, 0]], [.22, [14, 19, 27]], [.5, [84, 99, 116]], [.78, [186, 199, 212]], [1, [250, 252, 255]]], glow: [150, 190, 230], bloom: 0.16 },
+  neg:     { stops: [[0, [232, 236, 240]], [.4, [168, 176, 186]], [.75, [58, 64, 74]], [1, [8, 9, 12]]], glow: [30, 50, 80], bloom: 0, light: true },
+  azul:    { stops: [[0, [0, 0, 0]], [.22, [3, 20, 60]], [.5, [26, 92, 196]], [.78, [118, 208, 255]], [1, [255, 255, 255]]], glow: [67, 184, 255], bloom: 0.38 },
+  medico:  { stops: [[0, [0, 0, 0]], [.25, [0, 30, 16]], [.55, [10, 130, 66]], [.8, [120, 255, 170]], [1, [255, 255, 255]]], glow: [61, 255, 122], bloom: 0.3 },
+  ambar:   { stops: [[0, [0, 0, 0]], [.25, [36, 16, 0]], [.55, [180, 90, 10]], [.8, [255, 190, 80]], [1, [255, 250, 220]]], glow: [255, 166, 61], bloom: 0.3 },
+  termico: { stops: [[0, [0, 0, 0]], [.2, [80, 0, 10]], [.45, [230, 40, 0]], [.7, [255, 170, 0]], [1, [255, 255, 220]]], glow: [255, 90, 0], bloom: 0.3 },
 };
 for (const k in PALS) PALS[k].lut = makeLut(PALS[k].stops);
 const CMAP = makeLut([[0, [8, 0, 30]], [.25, [90, 10, 120]], [.5, [230, 40, 40]], [.75, [255, 180, 20]], [1, [255, 255, 230]]]);
@@ -50,7 +52,7 @@ const PRESETS = [
   { base: 0, points: 1, blur: 0, cmap: 1, glitch: 1, edges: 0, boxes: 0 },
 ];
 let presetIdx = 0;
-const opt = { pal: "xray", tissue: 0.42, bone: 0.85, pix: 11 };
+const opt = { pal: "xray", tissue: 0.55, bone: 0.85, pix: 11 };
 const FX_KEYS = ["auto", "blur", "points", "boxes", "glitch", "scan", "cmap", "edges", "base", "organs", "bones"];
 
 // ---------------------------------------------------------------- DOM
@@ -66,7 +68,7 @@ const mk = (w = 2, h = 2, read = false) => {
 let PW = 1, PH = 1, DPR = 1, WW = 2, WH = 2, N = 4;
 let crop = { x: 0, y: 0, w: 1, h: 1 };
 let facing = "user", mirror = true;
-let workC, wg, rgbC, rgbG, chC, chG, pixC, pixG, cmC, cmG, edC, edG, xrC, xrG, blC, blG;
+let denC, denG, tex, den = null, workC, wg, rgbC, rgbG, chC, chG, pixC, pixG, cmC, cmG, edC, edG, xrC, xrG, blC, blG;
 let mask, lum, ms, gw8 = 1, gh8 = 1, imgData, cmImg, edImg, xrImg;
 const scanPat = (() => {
   const [c, g] = mk(4, 4);
@@ -89,6 +91,8 @@ function layout() {
   [edC, edG] = mk(WW, WH);
   [xrC, xrG] = mk(WW, WH);
   [blC, blG] = mk(Math.ceil(WW / 7), Math.ceil(WH / 7));
+  [denC, denG] = mk(WW, WH, true);
+  tex = makeTexture(WW, WH);
   [pixC, pixG] = mk(12, 12);
   mask = new Float32Array(N);
   lum = new Uint8Array(N);
@@ -100,6 +104,23 @@ function layout() {
   xrImg = xrG.createImageData(WW, WH);
   xrG.fillStyle = "#000"; xrG.fillRect(0, 0, WW, WH);
   computeCrop();
+}
+
+// Textura trabecular del hueso (ruido suave fijo, varias escalas)
+function makeTexture(w, h) {
+  const t = new Float32Array(w * h);
+  for (const [cell, amp] of [[3, 0.5], [7, 0.35], [17, 0.25]]) {
+    const gw = Math.ceil(w / cell) + 2, gh = Math.ceil(h / cell) + 2, r = new Float32Array(gw * gh);
+    for (let i = 0; i < r.length; i++) r[i] = Math.random() * 2 - 1;
+    for (let y = 0; y < h; y++) {
+      const gy = y / cell, y0 = gy | 0, fy = gy - y0;
+      for (let x = 0; x < w; x++) {
+        const gx = x / cell, x0 = gx | 0, fx = gx - x0, a = y0 * gw + x0;
+        t[y * w + x] += amp * ((r[a] * (1 - fx) + r[a + 1] * fx) * (1 - fy) + (r[a + gw] * (1 - fx) + r[a + gw + 1] * fx) * fy);
+      }
+    }
+  }
+  return t;
 }
 
 function computeCrop() {
@@ -210,6 +231,17 @@ function grab(now) {
   });
   if (!gotMask) for (let i = 0; i < N; i++) mask[i] *= 0.6;
 
+  // Mapa de densidad anatómica (mismo cuadro que la máscara → todo queda alineado)
+  toPx();
+  denG.setTransform(1, 0, 0, 1, 0, 0);
+  denG.globalCompositeOperation = "source-over";
+  denG.fillStyle = "#000"; denG.fillRect(0, 0, WW, WH);
+  if (present) {
+    denG.setTransform(WW / PW, 0, 0, WH / PH, 0, 0);
+    drawAnatomy(denG, Lp, { bones: cfg.bones, organs: cfg.organs, mirror, t: now / 1000 });
+    den = denG.getImageData(0, 0, WW, WH).data;
+  } else den = null;
+
   buildLayers();
   frameNo++; fpsCount++;
   if (present && !bbox && !cpuTried && ++noMaskFrames > 60) { cpuTried = true; loadModel(true).catch(() => {}); }
@@ -258,7 +290,7 @@ function buildLayers() {
 
   const lut = PALS[opt.pal].lut, o = xrImg.data, tis = opt.tissue;
   let x0 = w, x1 = 0, y0 = h, y1 = 0, cnt = 0;
-  const fr = frameNo * 40503;
+  const fr = Math.imul(frameNo, 7919) & 0xfffff;
   for (let y = 0; y < h; y++) {
     const gy = clamp(y / B - 0.5, 0, gh8 - 1.001), gy0 = gy | 0, fy = gy - gy0;
     for (let x = 0; x < w; x++) {
@@ -268,15 +300,19 @@ function buildLayers() {
         rim = Math.min(1, (Math.abs(mask[i + 3] - mask[i - 3]) + Math.abs(mask[i + 3 * w] - mask[i - 3 * w])) * 1.7);
       }
       let v = 0;
-      if (m > 0.02 || rim > 0.02) {
+      if (m > 0.02 || rim > 0.02 || (den && den[i * 4] > 0)) {
         const gx = clamp(x / B - 0.5, 0, gw8 - 1.001), gx0 = gx | 0, fx = gx - gx0;
         const a = gy0 * gw8 + gx0;
         const T = (ms[a] * (1 - fx) + ms[a + 1] * fx) * (1 - fy) + (ms[a + gw8] * (1 - fx) + ms[a + gw8 + 1] * fx) * fy;
-        const d = 1 - lum[i] / 255;
-        const core = m * m * (0.10 + 0.50 * T * T);
-        const detail = m * (d * 0.40 - 0.06);
-        const n = ((Math.imul(i, 2654435761) ^ fr) & 255) / 255 - 0.5;
-        v = (core + detail) * tis * 1.5 + rim * 0.9 + n * 0.05 * m;
+        // Tejido blando: proporcional al grosor del cuerpo (más denso al centro)
+        let Dn = m * (0.12 + 0.62 * T) * tis;
+        if (den) {
+          const j4 = i * 4, air = den[j4 + 1] / 255, sft = den[j4 + 2] / 255, bon = den[j4] / 255;
+          Dn = Dn * (1 - 0.8 * air) + sft * 0.32 * m * tis;
+          Dn += bon * (0.82 + 0.28 * tex[i]) * 1.25 * (0.35 + 0.65 * m);
+        }
+        const n = (Math.imul((i + fr) | 0, 2654435761) >>> 24) / 255 - 0.5;
+        v = 1 - Math.exp(-2.1 * Dn) + rim * 0.1 + n * 0.045 * (0.3 + m);
         if (m > 0.5) { cnt++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       }
       const k = clamp(v, 0, 1) * 255 | 0, j = i * 4;
@@ -443,187 +479,7 @@ function drawTop(now) {
   txt(g, `[ POINTS: ${pts.toFixed(1)} ]  [ ${(poseConf * 100).toFixed(1)} % ]`, PW - pad, PH - pad - lh, "right", c, fs);
 }
 
-// ---------------------------------------------------------------- Esqueleto de rayos X
-let G = null; // contexto de dibujo actual
 let pal = PALS.xray;
-
-const gs = (path, w, al) => {
-  G.strokeStyle = rgba(pal.glow, al * 0.22); G.lineWidth = w * 3.2; G.stroke(path);
-  G.strokeStyle = rgba(pal.bone, al); G.lineWidth = w; G.stroke(path);
-};
-function circle(x, y, r, al, fill = 0.25) {
-  const p = new Path2D(); p.arc(x, y, Math.max(0.5, r), 0, 6.2832);
-  G.fillStyle = rgba(pal.bone, al * fill); G.fill(p); gs(p, Math.max(1, r * 0.16), al * 0.9);
-}
-function bone(a, b, r, al) {
-  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L * r * 0.42, ny = dx / L * r * 0.42;
-  const sh = new Path2D();
-  sh.moveTo(a.x + nx, a.y + ny); sh.lineTo(b.x + nx, b.y + ny); sh.lineTo(b.x - nx, b.y - ny); sh.lineTo(a.x - nx, a.y - ny); sh.closePath();
-  G.fillStyle = rgba(pal.bone, al * 0.22); G.fill(sh); gs(sh, Math.max(1, r * 0.18), al * 0.8);
-  circle(a.x, a.y, r * 0.85, al); circle(b.x, b.y, r * 0.7, al);
-}
-const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-const add = (a, b, k = 1) => ({ x: a.x + b.x * k, y: a.y + b.y * k });
-
-function drawSkull(al) {
-  const eL = Lp[5], eR = Lp[2];
-  if (eL.v < 0.5 || eR.v < 0.5) return;
-  const ed = Math.hypot(eR.x - eL.x, eR.y - eL.y) || 1;
-  const e = Math.max(ed * 2.0, Lp[8].v > 0.3 && Lp[7].v > 0.3 ? Math.hypot(Lp[7].x - Lp[8].x, Lp[7].y - Lp[8].y) : 0);
-  const d = { x: (eR.x - eL.x) / ed, y: (eR.y - eL.y) / ed }, dn = { x: -d.y, y: d.x };
-  const O = mid(eL, eR);
-  const lp = (x, y) => ({ x: O.x + d.x * x * e + dn.x * y * e, y: O.y + d.y * x * e + dn.y * y * e });
-  // Cráneo
-  const sk = new Path2D();
-  for (let i = 0; i <= 48; i++) {
-    const a = Math.PI + (i / 48) * Math.PI, p = lp(Math.cos(a) * 0.53, -0.24 + Math.sin(a) * 0.56);
-    i ? sk.lineTo(p.x, p.y) : sk.moveTo(p.x, p.y);
-  }
-  // Mandíbula
-  for (const [x, y] of [[0.53, -0.1], [0.5, 0.12], [0.42, 0.45], [0.22, 0.72], [0, 0.8], [-0.22, 0.72], [-0.42, 0.45], [-0.5, 0.12], [-0.53, -0.1]]) { const p = lp(x, y); sk.lineTo(p.x, p.y); }
-  G.fillStyle = rgba(pal.bone, al * 0.12); G.fill(sk); gs(sk, Math.max(1.2, e * 0.022), al);
-  // Cuencas de los ojos
-  for (const [x, s] of [[-0.31, 1], [0.31, 1]]) {
-    const c = lp(x, 0), p = new Path2D();
-    p.ellipse(c.x, c.y, e * 0.15, e * 0.12, Math.atan2(d.y, d.x), 0, 6.2832);
-    G.fillStyle = "rgba(0,0,0,.65)"; G.globalCompositeOperation = "source-over"; G.fill(p); G.globalCompositeOperation = "lighter";
-    gs(p, Math.max(1, e * 0.02), al * 0.95);
-  }
-  // Nariz, pómulos y dientes
-  const nz = new Path2D(); let p0 = lp(0, 0.1); nz.moveTo(p0.x, p0.y);
-  for (const [x, y] of [[-0.07, 0.36], [0.07, 0.36]]) { const p = lp(x, y); nz.lineTo(p.x, p.y); } nz.closePath();
-  gs(nz, Math.max(1, e * 0.016), al * 0.8);
-  const ck = new Path2D();
-  for (const s of [-1, 1]) { let p = lp(0.2 * s, 0.16); ck.moveTo(p.x, p.y); p = lp(0.48 * s, 0.14); ck.quadraticCurveTo(lp(0.36 * s, 0.26).x, lp(0.36 * s, 0.26).y, p.x, p.y); }
-  gs(ck, Math.max(1, e * 0.014), al * 0.6);
-  const th = new Path2D(); let pa = lp(-0.17, 0.52), pb = lp(0.17, 0.52); th.moveTo(pa.x, pa.y); th.lineTo(pb.x, pb.y);
-  for (let i = 0; i <= 8; i++) { const p = lp(-0.17 + i * 0.0425, 0.52), q = lp(-0.17 + i * 0.0425, 0.58); th.moveTo(p.x, p.y); th.lineTo(q.x, q.y); }
-  gs(th, Math.max(1, e * 0.012), al * 0.7);
-  return lp;
-}
-
-function drawBody(t) {
-  const A = opt.bone;
-  const hasSh = Lp[11].v > 0.5 && Lp[12].v > 0.5;
-  const lpHead = cfg.bones ? drawSkull(A) : null;
-  if (!hasSh) return;
-  const a = Lp[12], b = Lp[11];                 // izquierda y derecha de la pantalla
-  const sw = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  const dsh = { x: (b.x - a.x) / sw, y: (b.y - a.y) / sw };
-  const S0 = mid(a, b);
-  let ax = { x: -dsh.y, y: dsh.x }, len = sw * 1.4, hipsOK = false;
-  if (Lp[23].v > 0.55 && Lp[24].v > 0.55) {
-    const H = mid(Lp[23], Lp[24]), v = { x: H.x - S0.x, y: H.y - S0.y }, L = Math.hypot(v.x, v.y);
-    if (L > sw * 0.9 && L < sw * 2.6) { ax = { x: v.x / L, y: v.y / L }, len = L; hipsOK = true; }
-  }
-  const P = (k, s) => ({ x: S0.x + ax.x * len * k + dsh.x * sw * s, y: S0.y + ax.y * len * k + dsh.y * sw * s });
-  const tA = hipsOK ? 1 : 0.8;
-
-  // Órganos (oscurecen / brillan suavemente)
-  if (cfg.organs) {
-    G.globalCompositeOperation = "source-over";
-    const rot = Math.atan2(ax.y, ax.x) - Math.PI / 2;
-    for (const s of [-1, 1]) {
-      const c = P(0.26, 0.2 * s), p = new Path2D();
-      p.ellipse(c.x, c.y, sw * 0.16, len * 0.2, rot, 0, 6.2832);
-      G.fillStyle = "rgba(0,0,0,.32)"; G.fill(p);
-      G.strokeStyle = rgba(pal.glow, 0.18 * A); G.lineWidth = 1; G.stroke(p);
-    }
-    G.globalCompositeOperation = "lighter";
-    const beat = Math.pow(Math.max(0, Math.sin(t * 6.9)), 6) * 0.7 + Math.pow(Math.max(0, Math.sin(t * 6.9 - 0.9)), 6) * 0.4;
-    const hc = P(0.3, 0.07), hr = sw * 0.1 * (1 + beat * 0.14);
-    const gr = G.createRadialGradient(hc.x, hc.y, 0, hc.x, hc.y, hr * 1.8);
-    gr.addColorStop(0, rgba(pal.glow, (0.4 + beat * 0.4) * A)); gr.addColorStop(1, rgba(pal.glow, 0));
-    G.fillStyle = gr; G.beginPath(); G.arc(hc.x, hc.y, hr * 1.8, 0, 6.2832); G.fill();
-  }
-  G.globalCompositeOperation = "lighter";
-  if (!cfg.bones) return;
-
-  // Columna: cervical + torácica
-  const base = lpHead ? lpHead(0, 0.5) : add(S0, ax, -sw * 0.7);
-  const nb = add(S0, ax, -sw * 0.1);
-  const neck = new Path2D(); neck.moveTo(base.x, base.y); neck.lineTo(nb.x, nb.y);
-  gs(neck, 1, A * 0.35);
-  for (let i = 0; i < 7; i++) {
-    const k = i / 6, c = { x: lerp(base.x, nb.x, k), y: lerp(base.y, nb.y, k) }, vw = sw * 0.045;
-    const v = new Path2D(); v.moveTo(c.x - dsh.x * vw, c.y - dsh.y * vw); v.lineTo(c.x + dsh.x * vw, c.y + dsh.y * vw);
-    G.lineCap = "round"; gs(v, sw * 0.032, A * 0.9);
-  }
-  for (let i = 0; i < 13; i++) {
-    const k = 0.0 + (i / 12) * 0.72 * tA, c = P(k - 0.04, 0), vw = sw * (0.05 + k * 0.03);
-    const al = A * (1 - (i / 12) * (hipsOK ? 0 : 0.55));
-    const v = new Path2D(); v.moveTo(c.x - dsh.x * vw, c.y - dsh.y * vw); v.lineTo(c.x + dsh.x * vw, c.y + dsh.y * vw);
-    gs(v, sw * (0.04 + k * 0.025), al);
-  }
-
-  // Clavículas
-  for (const s of [a, b]) {
-    const sgn = s === a ? -1 : 1, n0 = add(S0, ax, sw * 0.02);
-    const cl = new Path2D(); cl.moveTo(n0.x, n0.y);
-    const cp = { x: (n0.x + s.x) / 2 - ax.x * sw * 0.07, y: (n0.y + s.y) / 2 - ax.y * sw * 0.07 };
-    cl.quadraticCurveTo(cp.x, cp.y, s.x - dsh.x * sgn * 0, s.y);
-    gs(cl, sw * 0.03, A * 0.95);
-  }
-
-  // Costillas
-  const nR = 7;
-  for (let k = 0; k < nR; k++) {
-    const tt = 0.06 + k * 0.085, al = A * 0.85 * (1 - (k / nR) * (hipsOK ? 0.15 : 0.4));
-    const wmax = sw * 0.5 * (0.62 + 0.38 * Math.sin(Math.PI * clamp((tt + 0.12) / 0.85, 0, 1)));
-    for (const s of [-1, 1]) {
-      const st = P(tt, 0), peak = P(tt + 0.01, s * wmax * 0.78 / sw), end = P(tt + 0.07 + k * 0.004, s * wmax / sw), front = P(tt + 0.14, s * wmax * 0.12 / sw);
-      const r = new Path2D(); r.moveTo(st.x, st.y);
-      r.quadraticCurveTo(peak.x, peak.y - 0 * len, end.x, end.y);
-      gs(r, sw * 0.022, al);
-      const cc = new Path2D(); cc.moveTo(end.x, end.y);
-      cc.quadraticCurveTo(P(tt + 0.13, s * wmax * 0.62 / sw).x, P(tt + 0.13, s * wmax * 0.62 / sw).y, front.x, front.y);
-      gs(cc, sw * 0.014, al * 0.45);
-    }
-  }
-  const stn = new Path2D(); const s1 = P(0.04, 0.01), s2 = P(0.5 * tA, 0.01); stn.moveTo(s1.x, s1.y); stn.lineTo(s2.x, s2.y);
-  gs(stn, sw * 0.014, A * 0.35);
-
-  // Hombros y brazos
-  const arm = (sh, el, wr, hand) => {
-    if (sh.v < 0.5) return;
-    circle(sh.x, sh.y, sw * 0.075, A, 0.3);
-    if (el.v < 0.45) return;
-    bone(sh, el, sw * 0.05, A);
-    if (wr.v < 0.45) return;
-    const dx = wr.x - el.x, dy = wr.y - el.y, L = Math.hypot(dx, dy) || 1, ox = -dy / L * sw * 0.017, oy = dx / L * sw * 0.017;
-    bone({ x: el.x + ox, y: el.y + oy }, { x: wr.x + ox * 0.4, y: wr.y + oy * 0.4 }, sw * 0.03, A * 0.95);
-    bone({ x: el.x - ox, y: el.y - oy }, { x: wr.x - ox * 0.4, y: wr.y - oy * 0.4 }, sw * 0.028, A * 0.95);
-    for (const h of hand) {
-      if (h.v < 0.3) continue;
-      const hb = new Path2D(); hb.moveTo(wr.x, wr.y); hb.lineTo(h.x, h.y);
-      gs(hb, sw * 0.014, A * 0.85);
-      const tip = { x: h.x + (h.x - wr.x) * 0.55, y: h.y + (h.y - wr.y) * 0.55 };
-      const fb = new Path2D(); fb.moveTo(h.x, h.y); fb.lineTo(tip.x, tip.y);
-      gs(fb, sw * 0.012, A * 0.7); circle(h.x, h.y, sw * 0.014, A * 0.9); circle(tip.x, tip.y, sw * 0.01, A * 0.8);
-    }
-  };
-  arm(Lp[12], Lp[14], Lp[16], [Lp[18], Lp[20], Lp[22]]);
-  arm(Lp[11], Lp[13], Lp[15], [Lp[17], Lp[19], Lp[21]]);
-
-  // Pelvis y piernas (solo si se ven)
-  if (hipsOK) {
-    const hl = Lp[24], hr = Lp[23], hw = Math.hypot(hr.x - hl.x, hr.y - hl.y);
-    const pel = new Path2D();
-    for (const s of [hl, hr]) {
-      const sg = s === hl ? -1 : 1, top = { x: s.x - ax.x * hw * 0.45 + dsh.x * sg * hw * 0.12, y: s.y - ax.y * hw * 0.45 + dsh.y * sg * hw * 0.12 };
-      pel.moveTo(S0.x + ax.x * len * 0.98, S0.y + ax.y * len * 0.98);
-      pel.quadraticCurveTo(top.x, top.y, s.x + dsh.x * sg * hw * 0.2, s.y);
-    }
-    gs(pel, hw * 0.035, A * 0.8);
-    circle(hl.x, hl.y, hw * 0.1, A, 0.3); circle(hr.x, hr.y, hw * 0.1, A, 0.3);
-    const leg = (h, k, an, foot) => {
-      if (k.v < 0.45) return; bone(h, k, hw * 0.1, A);
-      if (an.v < 0.45) return; bone(k, an, hw * 0.08, A);
-      if (foot.v > 0.4) bone(an, foot, hw * 0.05, A * 0.8);
-    };
-    leg(hl, Lp[26], Lp[28], Lp[32]); leg(hr, Lp[25], Lp[27], Lp[31]);
-  }
-}
 
 // ---------------------------------------------------------------- Panel inferior
 const BOT_LABELS = [
@@ -632,37 +488,36 @@ const BOT_LABELS = [
 ];
 
 function drawBottom(now) {
-  const g = bg; G = g; pal = PALS[opt.pal];
+  const g = bg; pal = PALS[opt.pal];
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; g.imageSmoothingEnabled = true; g.lineCap = "round"; g.lineJoin = "round";
   g.drawImage(xrC, 0, 0, PW, PH);
 
   // Resplandor (versión pequeña de la imagen, ampliada)
   blG.drawImage(xrC, 0, 0, blC.width, blC.height);
-  g.globalCompositeOperation = "lighter"; g.globalAlpha = 0.45; g.drawImage(blC, 0, 0, PW, PH); g.globalAlpha = 1;
+  if (pal.bloom) { g.globalCompositeOperation = "lighter"; g.globalAlpha = pal.bloom; g.drawImage(blC, 0, 0, PW, PH); g.globalAlpha = 1; }
+  g.globalCompositeOperation = "source-over";
 
   // Cuadrícula
   const cell = PW / 9;
-  g.strokeStyle = "rgba(255,255,255,.17)"; g.lineWidth = 1; g.beginPath();
+  g.strokeStyle = pal.light ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.14)"; g.lineWidth = 1; g.beginPath();
   for (let x = cell; x < PW; x += cell) { g.moveTo(Math.round(x) + .5, 0); g.lineTo(Math.round(x) + .5, PH); }
   for (let y = cell * 0.9; y < PH; y += cell) { g.moveTo(0, Math.round(y) + .5); g.lineTo(PW, Math.round(y) + .5); }
   g.stroke();
 
-  if (present) drawBody(now / 1000);
-
-  g.globalCompositeOperation = "lighter";
+  g.globalCompositeOperation = pal.light ? "source-over" : "lighter";
   if (cfg.scan) {
     const sy = (((now / 3400) + 0.4) % 1) * (PH + 120) - 60;
     const gr = g.createLinearGradient(0, sy - 60, 0, sy + 60);
     gr.addColorStop(0, rgba(pal.glow, 0)); gr.addColorStop(0.5, rgba(pal.glow, 0.16)); gr.addColorStop(1, rgba(pal.glow, 0));
     g.fillStyle = gr; g.fillRect(0, sy - 60, PW, 120);
-    g.fillStyle = rgba(pal.bone, 0.6); g.fillRect(0, sy, PW, 1);
+    g.fillStyle = rgba(pal.glow, 0.45); g.fillRect(0, sy, PW, 1);
   }
   g.globalCompositeOperation = "source-over";
   if (cfg.points && present) keypoints(g, 1);
 
   // Etiquetas del fondo
-  const fs = clamp(PW * 0.0105, 9, 13), lh = fs * 1.45, c = { fg: "#f2f2f2", halo: "rgba(0,0,0,.7)" };
+  const fs = clamp(PW * 0.0105, 9, 13), lh = fs * 1.45, c = pal.light ? { fg: "#111", halo: "rgba(255,255,255,.7)" } : { fg: "#f2f2f2", halo: "rgba(0,0,0,.7)" };
   for (const [xf, row, idx, name] of BOT_LABELS) {
     const y = PH - fs * (row ? 3.4 : 6.3), x = PW * xf, v = present ? clamp(Lp[idx].v, 0, 1) : 0;
     const tw = Math.max(name.length, 8) * fs * 0.36 + 4;
